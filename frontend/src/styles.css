@@ -17,13 +17,44 @@ html, body {
     flex-direction: column;
     box-sizing: border-box;
     height: 100%;
-    padding: 20px;
+    padding: 10px;
 }
 
-h1 {
+.header {
     text-align: left;
     color: #0f0f0f;
     margin-top: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.reload-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px;
+    font-weight: bold;
+    height: 34px;
+    line-height: 34px;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinning svg {
+    animation: spin 300ms linear infinite;
+    transform-origin: center;
 }
 
 .plot-container {
@@ -33,6 +64,6 @@ h1 {
     flex: 1;
     display: flex;
     box-sizing: border-box;
-    min-height: 400px; /* This is important for Firefox */
+    min-height: 400px;
     flex-grow: 1;
 }
