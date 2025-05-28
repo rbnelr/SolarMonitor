@@ -3,6 +3,7 @@ node_modules/
 .env
 
 # Python files
+venv/
 __pycache__/
 *.pyc
 *.pyo
