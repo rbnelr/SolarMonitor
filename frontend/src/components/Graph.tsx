@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Plot from "react-plotly.js";
 import { fetchData } from "../api";
+import type { DataSets } from "../api";
 
 interface GraphProps {
   reloadTrigger: number;
@@ -8,9 +9,13 @@ interface GraphProps {
 }
 
 const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
-  const [graphData, setGraphData] = useState<{ x: string[]; y: number[] }>({
-    x: [],
-    y: [],
+  const [graphData, setGraphData] = useState<{
+    data: DataSets;
+  }>({
+    data: {
+      energyUsage: { timestamps: [], values: [] },
+      solarPower: { timestamps: [], values: [] }
+    }
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -26,11 +31,8 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
           onLoadingChange?.(false);
         }, 300);
 
-        // Fetch data immediately
         const data = await fetchData();
-        const x = data.map((point) => point.timestamp);
-        const y = data.map((point) => point.value);
-        setGraphData({ x, y });
+        setGraphData({ data });
       } catch (err) {
         setError("Failed to load data.");
       }
@@ -52,8 +54,8 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
       <Plot
         data={[
           {
-            x: graphData.x,
-            y: graphData.y,
+            x: graphData.data.energyUsage.timestamps,
+            y: graphData.data.energyUsage.values,
             type: "scatter",
             mode: "lines",
             fill: 'tozeroy',
@@ -62,6 +64,17 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
             name: "Energy Usage",
             showlegend: true
           },
+          {
+            x: graphData.data.solarPower.timestamps,
+            y: graphData.data.solarPower.values,
+            type: "scatter",
+            mode: "lines",
+            fill: 'tozeroy',
+            marker: { color: "#eee600" },
+            line: { width: 4, shape: 'spline', smoothing: 0.75, simplify: true },
+            name: "Solar Power",
+            showlegend: true
+          }
         ]}
         layout={{
           xaxis: { 
