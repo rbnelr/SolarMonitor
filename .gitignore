@@ -1,0 +1,11 @@
+# Node.js files
+node_modules/
+.env
+
+# Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# System files
+.DS_Store
