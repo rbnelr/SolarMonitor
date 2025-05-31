@@ -32,6 +32,17 @@ def create_tables():
     with get_db_cursor() as cur:
         #cur.execute("DROP TABLE IF EXISTS data")
         
+        # type -> power, energy
+        # unit ->
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS channels (
+                channel_id INT(3) PRIMARY KEY NOT NULL AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                type VARCHAR(20) NOT NULL,
+                unit VARCHAR(20) NOT NULL
+            )
+        """)
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS data (
                 channel_id INT(3) NOT NULL,
@@ -40,4 +51,8 @@ def create_tables():
                 PRIMARY KEY (channel_id, timestamp)
             )
         """)
+        cur.execute("""
+            ALTER TABLE data ADD CONSTRAINT fk_channel_id FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+        """)
+    
     
