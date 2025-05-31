@@ -21,6 +21,7 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
 
       try {
         const data = await fetchData();
+        //console.log('Received data:', data);
         setGraphData(data);
       } catch (err) {
         setError("Failed to load data.");
@@ -43,55 +44,25 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
       <Plot
         data={[
           {
-            x: graphData.readings.map(x => x.timestamp),
-            y: graphData.readings.map(x => x.ret_aenergy.total),
+            x: graphData.power.map(x => x.timestamp),
+            y: graphData.power.map(x => x.value),
             type: "scatter",
             mode: "lines",
-            marker: { color: "#5060FF" },
-            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
-            name: "ret_aenergy",
-            showlegend: true,
-          },
-          {
-            x: graphData.readings.map(x => x.timestamp),
-            y: graphData.readings.map(x => x.ret_aenergy.by_minute[0]),
-            type: "scatter",
-            mode: "lines",
-            marker: { color: "#5060FF" },
-            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
-            name: "by_minute[0]",
-            showlegend: true,
-          },
-          {
-            x: graphData.readings.map(x => x.timestamp),
-            y: graphData.readings.map(x => x.ret_aenergy.by_minute[1]),
-            type: "scatter",
-            mode: "lines",
-            marker: { color: "#6060FF" },
-            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
-            name: "by_minute[1]",
-            showlegend: true,
-          },
-          {
-            x: graphData.readings.map(x => x.timestamp),
-            y: graphData.readings.map(x => x.ret_aenergy.by_minute[2]),
-            type: "scatter",
-            mode: "lines",
-            marker: { color: "#7060FF" },
-            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
-            name: "by_minute[2]",
-            showlegend: true,
-          },
-          {
-            x: graphData.readings.map(x => x.timestamp),
-            y: graphData.readings.map(x => x.apower),
-            type: "scatter",
-            mode: "lines",
-            marker: { color: "#FFE700" },
+            marker: { color: "#003000" },
             line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
             name: "apower",
             showlegend: true,
           },
+          {
+            x: graphData.by_minute.map(x => x.timestamp),
+            y: graphData.by_minute.map(x => x.value),
+            type: "scatter",
+            mode: "lines+markers",
+            marker: { color: "#5060FF" },
+            line: { width: 2.5, shape: "vh", simplify: true },
+            name: "by_minute[0]",
+            showlegend: true,
+          }
         ]}
         layout={{
           xaxis: {

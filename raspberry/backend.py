@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from dummy_data import get_dummy_data
 from fastapi.middleware.cors import CORSMiddleware
 import json
-from datetime import datetime
 
 app = FastAPI()
 
@@ -27,28 +26,27 @@ def get_test_data():
         with open('data.txt', 'r') as f:
             lines = f.readlines()
             
-        data = []
+        data_power = []
+        data_by_minute = []
         for line in lines:
             timestamp, json_str = line.split(': ', 1)
             reading = json.loads(json_str)
-            data.append({
+            data_power.append({
                 'timestamp': int(timestamp),
-                'apower': -reading['apower'], # W
-                'ret_aenergy': {
-                    'total': reading['ret_aenergy']['total'] / 1000, # Wh -> kWh (accumulated)
-                    'by_minute': [
-                        reading['ret_aenergy']['by_minute'][0] * (60.0 / 1000), # mWh / min -> W (avg in minute)
-                        reading['ret_aenergy']['by_minute'][1] * (60.0 / 1000),
-                        reading['ret_aenergy']['by_minute'][2] * (60.0 / 1000),
-                    ],
-                    'minute_ts': reading['ret_aenergy']['minute_ts']
-                }
+                'value': -reading['apower'], # W
             })
-        return data
+            by_minute = {
+                'timestamp': int(reading['ret_aenergy']['minute_ts']) * 1000,
+                'value': reading['ret_aenergy']['by_minute'][0] * (60.0 / 1000), # mWh / min -> W (avg in minute)
+            }
+            if (not data_by_minute or data_by_minute[-1]['timestamp'] != by_minute['timestamp']):
+                data_by_minute.append(by_minute)
+            
+        return { 'power': data_power, 'by_minute': data_by_minute }
     except Exception as e:
         print(f"Error reading data file: {e}")
-        return []
+        return { 'power': [], 'by_minute': [] }
 
 @app.get("/data")
 async def get_data():
-    return { 'readings': get_test_data() }
+    return get_test_data()

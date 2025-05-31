@@ -1,8 +1,10 @@
 export interface Data {
-  readings: any[];
+  power: any[];
+  by_minute: any[];
 }
 export const EMPTY_DATA: Data = {
-  readings: []
+  power: [],
+  by_minute: []
 };
 
 export async function fetchData(): Promise<Data> {
