@@ -29,7 +29,7 @@ const App: React.FC = () => {
           </svg>
         </button>
       </div>
-      <Graph reloadTrigger={reloadTrigger} onLoadingChange={setIsLoading} />
+      <Graph reloadTrigger={reloadTrigger} setIsLoading={setIsLoading} />
     </div>
   );
 };
