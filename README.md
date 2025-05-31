@@ -2,9 +2,11 @@
 
 cs frontend
 npm run dev
+http://localhost:5173/
 
-cs backend
-uvicorn app.main:app --reload
+cs raspberry
+uvicorn backend:app --reload
+http://localhost:8000/data works
 
 D:\coding\SolarMonitor\raspberry>"venv\Scripts\activate.bat"
 (venv) D:\coding\SolarMonitor\raspberry>pip install xxx

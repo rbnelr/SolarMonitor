@@ -1,83 +1,100 @@
 import React, { useEffect, useState } from "react";
 import Plot from "react-plotly.js";
-import { fetchData } from "../api";
-import type { DataSets } from "../api";
+import { EMPTY_DATA, fetchData } from "../api";
+import type { Data } from "../api";
 
 interface GraphProps {
   reloadTrigger: number;
-  onLoadingChange?: (loading: boolean) => void;
+  setIsLoading?: (loading: boolean) => void;
 }
 
-const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
-  const [graphData, setGraphData] = useState<{
-    data: DataSets;
-  }>({
-    data: {
-      energyUsage: { timestamps: [], values: [] },
-      solarPower: { timestamps: [], values: [] }
-    }
-  });
+const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
+  const [graphData, setGraphData] = useState<Data>(EMPTY_DATA);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let buttonAnimationTimer: number;
-
     async function loadGraphData() {
-      try {
-        onLoadingChange?.(true);
-        
-        // Start button animation timer
-        buttonAnimationTimer = window.setTimeout(() => {
-          onLoadingChange?.(false);
-        }, 300);
+      setIsLoading?.(true);
+      setError(null);
+      setGraphData(EMPTY_DATA);
+      const startTime = Date.now();
 
+      try {
         const data = await fetchData();
-        setGraphData({ data });
+        setGraphData(data);
       } catch (err) {
         setError("Failed to load data.");
+      } finally {
+        const remainingTime = 500 - (Date.now() - startTime); // Animate at least one rotation for button
+        if (remainingTime > 0) {
+          window.setTimeout(() => setIsLoading?.(false), remainingTime);
+        } else {
+          setIsLoading?.(false);
+        }
       }
     }
 
     loadGraphData();
-
-    return () => {
-      if (buttonAnimationTimer) {
-        clearTimeout(buttonAnimationTimer);
-      }
-    };
-  }, [reloadTrigger, onLoadingChange]);
-
-  if (error) return <div>{error}</div>;
+  }, [reloadTrigger, setIsLoading]);
 
   return (
     <div className="plot-container">
+      {error && <div className="error-message">{error}</div>}
       <Plot
         data={[
           {
-            x: graphData.data.energyUsage.timestamps,
-            y: graphData.data.energyUsage.values,
+            x: graphData.readings.map(x => x.timestamp),
+            y: graphData.readings.map(x => x.ret_aenergy.total),
             type: "scatter",
             mode: "lines",
-            fill: 'tozeroy',
-            marker: { color: "blue" },
-            line: { width: 4, shape: 'spline', smoothing: 0.75, simplify: true },
-            name: "Energy Usage",
-            showlegend: true
+            marker: { color: "#5060FF" },
+            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            name: "ret_aenergy",
+            showlegend: true,
           },
           {
-            x: graphData.data.solarPower.timestamps,
-            y: graphData.data.solarPower.values,
+            x: graphData.readings.map(x => x.timestamp),
+            y: graphData.readings.map(x => x.ret_aenergy.by_minute[0]),
             type: "scatter",
             mode: "lines",
-            fill: 'tozeroy',
-            marker: { color: "#eee600" },
-            line: { width: 4, shape: 'spline', smoothing: 0.75, simplify: true },
-            name: "Solar Power",
-            showlegend: true
-          }
+            marker: { color: "#5060FF" },
+            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            name: "by_minute[0]",
+            showlegend: true,
+          },
+          {
+            x: graphData.readings.map(x => x.timestamp),
+            y: graphData.readings.map(x => x.ret_aenergy.by_minute[1]),
+            type: "scatter",
+            mode: "lines",
+            marker: { color: "#6060FF" },
+            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            name: "by_minute[1]",
+            showlegend: true,
+          },
+          {
+            x: graphData.readings.map(x => x.timestamp),
+            y: graphData.readings.map(x => x.ret_aenergy.by_minute[2]),
+            type: "scatter",
+            mode: "lines",
+            marker: { color: "#7060FF" },
+            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            name: "by_minute[2]",
+            showlegend: true,
+          },
+          {
+            x: graphData.readings.map(x => x.timestamp),
+            y: graphData.readings.map(x => x.apower),
+            type: "scatter",
+            mode: "lines",
+            marker: { color: "#FFE700" },
+            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            name: "apower",
+            showlegend: true,
+          },
         ]}
         layout={{
-          xaxis: { 
+          xaxis: {
             type: "date",
             showline: true,
             linewidth: 1,
@@ -86,23 +103,23 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, onLoadingChange }) => {
             tickfont: { size: 15 }
           },
           yaxis: {
-            ticksuffix: "W",
+            title: { text: 'Power (W)' },
             showline: true,
             linewidth: 1,
             linecolor: '#d0d0d0',
             mirror: true,
             tickfont: { size: 15 }
           },
-          margin: { t: 20, r: 20, b: 55, l: 65 },
+          margin: { t: 20, r: 65, b: 55, l: 65 },
           autosize: true,
           plot_bgcolor: '#f8f8f8',
-          paper_bgcolor: 'white',
+          paper_bgcolor: "white",
           showlegend: true,
           legend: {
             x: 0,
             y: 1,
-            xanchor: 'left',
-            bgcolor: 'transparent'
+            xanchor: "left",
+            bgcolor: "transparent"
           }
         }}
         style={{ width: "100%", height: "100%" }}

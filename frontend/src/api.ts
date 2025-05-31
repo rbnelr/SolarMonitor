@@ -1,18 +1,14 @@
-
-export interface DataSet {
-  timestamps: number[];  // Unix milliseconds
-  values: number[];
+export interface Data {
+  readings: any[];
 }
-export interface DataSets {
-  energyUsage: DataSet;
-  solarPower: DataSet;
-}
+export const EMPTY_DATA: Data = {
+  readings: []
+};
 
-
-export async function fetchData(): Promise<DataSets> {
-  const response = await fetch("http://127.0.0.1:8000/data");
+export async function fetchData(): Promise<Data> {
+  const response = await fetch('http://localhost:8000/data');
   if (!response.ok) {
-    throw new Error("Failed to fetch data from the backend.");
+    throw new Error('Failed to fetch data');
   }
-  return response.json();
+  return await response.json();
 }
