@@ -38,24 +38,33 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
     loadGraphData();
   }, [reloadTrigger, setIsLoading]);
 
+  // Performance: (From what I can tell)
+  // spline smoothing for traces is quite slow so prefer linear display
+  // Seems like passing the data to plotly and react both don't matter, the main bottleneck is the amount of data and plotly layout and rendering
+  // panning is fast (browser caches rendered svg?)
+  // zooming and window resize are quick enough
+  // (just noticed that resizing actually attempts to wait until your mouse stops moving, which can appear as lag but likely is just as fast at redrawing as mousewheel zooming)
+  // Actually performance without smoothing is good with test data (data.txt)
+
+  // BUG: zooming breaks time axis? but panning first then zooming works
   return (
     <div className="plot-container">
       {error && <div className="error-message">{error}</div>}
       <Plot
         data={[
           {
-            x: graphData.power.map(x => x.timestamp),
-            y: graphData.power.map(x => x.value),
+            x: graphData.power.timestamps,
+            y: graphData.power.values,
             type: "scatter",
             mode: "lines",
             marker: { color: "#003000" },
-            line: { width: 2.5, shape: "spline", smoothing: 0.75, simplify: true },
+            line: { width: 2.5, shape: "linear", simplify: true },
             name: "apower",
             showlegend: true,
           },
           {
-            x: graphData.by_minute.map(x => x.timestamp),
-            y: graphData.by_minute.map(x => x.value),
+            x: graphData.by_minute.timestamps,
+            y: graphData.by_minute.values,
             type: "scatter",
             mode: "lines+markers",
             marker: { color: "#5060FF" },
@@ -74,16 +83,18 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
             tickfont: { size: 15 }
           },
           yaxis: {
-            title: { text: 'Power (W)' },
             showline: true,
             linewidth: 1,
             linecolor: '#d0d0d0',
             mirror: true,
+            // Shows Watts as 100W / 100kW / 100MW etc., note that using " W" breaks as it displays as 100k W etc.
+            // However M actually stands for million not mega, so instead of GW (gigawatt) we get BW (billion watt), which is wrong, but probably irrelevant for our use case
+            ticksuffix: "W",
             tickfont: { size: 15 },
-            fixedrange: true,
+            fixedrange: true, // TODO: Allow zooming and pan of y axis, how? Toggle x/y being fixed with ctrl key and or toggle button (good for mobile)?
             range: [-100, 1100],
           },
-          margin: { t: 20, r: 65, b: 55, l: 65 },
+          margin: { t: 20, r: 20, b: 55, l: 65 },
           autosize: true,
           plot_bgcolor: '#f8f8f8',
           paper_bgcolor: "white",

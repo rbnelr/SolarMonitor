@@ -1,7 +1,8 @@
 from fastapi import FastAPI
-from dummy_data import get_dummy_data
 from fastapi.middleware.cors import CORSMiddleware
-import json
+import timestamps as ts
+from datetime import datetime, timedelta
+import database as db
 
 app = FastAPI()
 
@@ -14,39 +15,30 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+def query_channel_range(channel_id, start, end):
+    with db.get_db_cursor() as cur:
+        start_ts = ts.local_time_to_timestamp(start)
+        end_ts = ts.local_time_to_timestamp(end)
 
-
-#@app.get("/data")
-#async def get_data():
-#    """Endpoint to fetch dummy energy use data"""
-#    return get_dummy_data()
-
-def get_test_data():
-    try:
-        with open('data.txt', 'r') as f:
-            lines = f.readlines()
-            
-        data_power = []
-        data_by_minute = []
-        for line in lines:
-            timestamp, json_str = line.split(': ', 1)
-            reading = json.loads(json_str)
-            data_power.append({
-                'timestamp': int(timestamp),
-                'value': -reading['apower'], # W
-            })
-            by_minute = {
-                'timestamp': int(reading['ret_aenergy']['minute_ts']) * 1000,
-                'value': reading['ret_aenergy']['by_minute'][0] * (60.0 / 1000), # mWh / min -> W (avg in minute)
-            }
-            if (not data_by_minute or data_by_minute[-1]['timestamp'] != by_minute['timestamp']):
-                data_by_minute.append(by_minute)
-            
-        return { 'power': data_power, 'by_minute': data_by_minute }
-    except Exception as e:
-        print(f"Error reading data file: {e}")
-        return { 'power': [], 'by_minute': [] }
+        cur.execute("""select timestamp, value
+                        from data
+                        where channel_id = %s and timestamp between %s and %s
+                        """, (channel_id, start_ts, end_ts))
+        results = cur.fetchall()
+        # TODO: is this slow in python? optimize? how? numpy or directly in sql?
+        # how slow is json conversion? If sql produces string, can we avoid expensive conversion?
+        return { 'timestamps': [row[0] for row in results], 'values': [row[1] for row in results] }
 
 @app.get("/data")
 async def get_data():
-    return get_test_data()
+    power_id, power_by_minute_id = db.get_channels()
+    # show all for now
+    start = datetime.now() - timedelta(days=9999)
+    end = datetime.now() + timedelta(days=9999)
+
+    return {
+        'power': query_channel_range(power_id, start, end),
+        'by_minute': query_channel_range(power_by_minute_id, start, end),
+    }
+
+

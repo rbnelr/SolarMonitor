@@ -1,10 +1,12 @@
+// Data in struct of arrays format since plotly expects it this way
+// Should also be more efficient than array of objects due to how json encodes it
 export interface Data {
-  power: any[];
-  by_minute: any[];
+  power: { timestamps: number[]; values: number[] };
+  by_minute: { timestamps: number[]; values: number[] };
 }
 export const EMPTY_DATA: Data = {
-  power: [],
-  by_minute: []
+  power: { timestamps: [], values: [] },
+  by_minute: { timestamps: [], values: [] },
 };
 
 export async function fetchData(): Promise<Data> {
@@ -12,5 +14,5 @@ export async function fetchData(): Promise<Data> {
   if (!response.ok) {
     throw new Error('Failed to fetch data');
   }
-  return await response.json();
+  return await response.json(); // Convert json response to Data object with native arrays
 }
