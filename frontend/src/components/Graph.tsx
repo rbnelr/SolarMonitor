@@ -16,7 +16,7 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
     async function loadGraphData() {
       setIsLoading?.(true);
       setError(null);
-      setGraphData(EMPTY_DATA);
+      //setGraphData(EMPTY_DATA);
       const startTime = Date.now();
 
       try {
@@ -53,23 +53,26 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
       <Plot
         data={[
           {
-            x: graphData.power.timestamps,
-            y: graphData.power.values,
-            type: "scatter",
-            mode: "lines",
-            marker: { color: "#003000" },
-            line: { width: 2.5, shape: "linear", simplify: true },
-            name: "apower",
-            showlegend: true,
-          },
-          {
             x: graphData.by_minute.timestamps,
             y: graphData.by_minute.values,
             type: "scatter",
             mode: "lines+markers",
-            marker: { color: "#5060FF" },
+            fill: "tozeroy",
+            fillcolor: "#F3D70030",
+            connectgaps: false,
+            marker: { color: "#F3D700" },
             line: { width: 2.5, shape: "vh", simplify: true },
-            name: "by_minute[0]",
+            name: "by_minute",
+            showlegend: true,
+          },
+          {
+            x: graphData.power.timestamps,
+            y: graphData.power.values,
+            type: "scatter",
+            mode: "lines",
+            marker: { color: "#201000A0" },
+            line: { width: 2.5, shape: "linear", simplify: true },
+            name: "apower",
             showlegend: true,
           }
         ]}
@@ -106,6 +109,7 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
             bgcolor: "transparent"
           },
           dragmode: "pan",
+          uirevision: 'true'
         }}
         style={{ width: "100%", height: "100%" }}
         useResizeHandler={true}
