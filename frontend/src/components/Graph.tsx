@@ -4,11 +4,11 @@ import { EMPTY_DATA, fetchData } from "../api";
 import type { Data } from "../api";
 
 interface GraphProps {
-  reloadTrigger: number;
+  updateTrigger: number;
   setIsLoading?: (loading: boolean) => void;
 }
 
-const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
+const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
   const [graphData, setGraphData] = useState<Data>(EMPTY_DATA);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +36,7 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
     }
 
     loadGraphData();
-  }, [reloadTrigger, setIsLoading]);
+  }, [updateTrigger, setIsLoading]);
 
   // Performance: (From what I can tell)
   // spline smoothing for traces is quite slow so prefer linear display

@@ -50,10 +50,11 @@ html, body {
     height: 34px;
     line-height: 34px;
     color: #0f0f0f;
-    transition: color 0.2s;
+    transition: all 0.2s ease;
+    border-radius: 50%;
 }
-.reload-button:hover {
-    color: #706300;
+.reload-button:hover:not(.spinning) {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 @keyframes spin {
     from {

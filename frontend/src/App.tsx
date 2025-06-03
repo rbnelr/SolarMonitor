@@ -5,21 +5,21 @@ import "./styles.css";
 const AUTO_UPDATE_INTERVAL = 5000; // 5 seconds
 
 const App: React.FC = () => {
-  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(false);
 
-  const handleReload = useCallback(() => {
-    setReloadTrigger(prev => prev + 1);
+  const handleUpdate = useCallback(() => {
+    setUpdateTrigger(prev => prev + 1);
   }, []);
 
   useEffect(() => {
     if (autoUpdate) {
-      handleReload(); // quicker feedback (since intention was to reload)
-      const interval = setInterval(handleReload, AUTO_UPDATE_INTERVAL);
+      handleUpdate(); // quicker feedback (since intention was to reload)
+      const interval = setInterval(handleUpdate, AUTO_UPDATE_INTERVAL);
       return () => clearInterval(interval);
     }
-  }, [autoUpdate, handleReload]);
+  }, [autoUpdate, handleUpdate]);
 
   return (
     <div className="app-container">
@@ -39,7 +39,7 @@ const App: React.FC = () => {
 
           <button 
             className={`reload-button ${isLoading ? 'spinning' : ''}`} 
-            onClick={handleReload} disabled={isLoading} aria-label="Reload data"
+            onClick={handleUpdate} disabled={isLoading} aria-label="Reload data"
           >
             <svg viewBox="0 0 24 24" width="28" height="28">
               <path
@@ -53,7 +53,7 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-      <Graph reloadTrigger={reloadTrigger} setIsLoading={setIsLoading} />
+      <Graph updateTrigger={updateTrigger} setIsLoading={setIsLoading} />
     </div>
   );
 };
