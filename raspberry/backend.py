@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import database as db
@@ -16,8 +16,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def query_channel_range(channel_id, start, end, gap_thres, gap_fill_fix=False):
-    with db.get_db_cursor() as cur:
+def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=False):
+    try:
         t0 = time.perf_counter()
         t0f = time.perf_counter()
         start_ts = ts.local_time_to_timestamp(start)
@@ -67,27 +67,43 @@ def query_channel_range(channel_id, start, end, gap_thres, gap_fill_fix=False):
         print(f" total query time: {(t1 - t0)*1000:.2f} ms")
 
         return res
+    except Exception as ex:
+        print(f"Error querying channel range: {ex}")
+        return { 'timestamps': [], 'values': [] }
 
 @app.get("/data")
 async def get_data():
-    t0 = time.perf_counter()
+    try:
+        t0 = time.perf_counter()
 
-    power_id, power_by_minute_id = db.get_channels()
-    # show all for now
-    start = datetime.now() - timedelta(days=9999)
-    end = datetime.now() + timedelta(days=9999)
+        # show all for now
+        start = datetime.now() - timedelta(days=1)
+        end = datetime.now() + timedelta(days=9999)
 
-    # assume missing data if 3 times more elapsed time than supposed sample rate
-    gap_thres_power = 1000 *3
-    gap_thres_by_minute = 1000*60 *3
+        # assume missing data if 3 times more elapsed time than supposed sample rate
+        gap_thres_power = 1000 *3
+        gap_thres_by_minute = 1000*60 *3
+        
+        with db.get_db_cursor() as cur:
+            power_id, power_by_minute_id = db.get_channels(cur)
 
-    res = {
-        'power': query_channel_range(power_id, start, end, gap_thres_power),
-        'by_minute': query_channel_range(power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True),
-    }
+            power_data = query_channel_range(cur, power_id, start, end, gap_thres_power)
+            by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
+        with db.get_vz_db_cursor() as cur2:
+            vz_meter_data = query_channel_range(cur2, 5, start, end, gap_thres_power)
 
-    t1 = time.perf_counter()
-    print(f"total time: {(t1 - t0)*1000:.2f} ms")
+        res = {
+            'power': power_data,
+            'by_minute': by_minute_data,
+            'meter': vz_meter_data
+        }
 
-    return res
+        t1 = time.perf_counter()
+        print(f"total time: {(t1 - t0)*1000:.2f} ms")
+
+        return res
+    except Exception as ex:
+        print(f"Error querying data: {ex}")
+        raise HTTPException(status_code=404, detail=f"Error querying data")
+        
 

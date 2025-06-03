@@ -102,6 +102,16 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
             line: { width: 2.5, shape: "linear", simplify: true },
             name: "apower",
             showlegend: true,
+          },
+          {
+            x: graphData.meter.timestamps,
+            y: graphData.meter.values,
+            type: "scatter",
+            mode: "lines",
+            marker: { color: "#001020A0" },
+            line: { width: 2.5, shape: "linear", simplify: true },
+            name: "meter",
+            showlegend: true,
           }
         ]}
         layout={{
@@ -114,7 +124,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
             tickfont: { size: 15 },
 
             //rangeslider: { visible: true },
-            rangeselector: { // Seemingly don't actually work with panning, but this is easy to implement myself
+            rangeselector: { // Seemingly does not actually work with panning, but this is easy to implement myself
               buttons: [
                 {
                   count: 1,
@@ -155,7 +165,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
             bgcolor: "transparent"
           },
           dragmode: "pan",
-          uirevision: 'true'
+          uirevision: 'true',
         }}
         style={{ width: "100%", height: "100%" }}
         config={{ responsive: true, scrollZoom: true, displayModeBar: false }}
