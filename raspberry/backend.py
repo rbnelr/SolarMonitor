@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import timestamps as ts
 from datetime import datetime, timedelta
 import database as db
 import time
+import timestamps as ts
 
 app = FastAPI()
 
@@ -55,7 +55,9 @@ def query_channel_range(channel_id, start, end, gap_thres):
         t1p = time.perf_counter()
         t1 = time.perf_counter()
         
-        print(f"  fetch time: {(t1f - t0f)*1000:.2f} ms") # The bottleneck by far, takes a lot more time than iterating the data in python, so json conversion is likely fast as well
+        # fatch is the bottleneck by far, takes a lot more time than iterating the data in python, so json conversion is likely fast as well
+        # but of course once backend is deployed to raspberry, performance will change dramatically
+        print(f"  fetch time: {(t1f - t0f)*1000:.2f} ms")
         print(f"  processing time: {(t1p - t0p)*1000:.2f} ms")
         print(f" total query time: {(t1 - t0)*1000:.2f} ms")
 
@@ -83,3 +85,4 @@ async def get_data():
     print(f"total time: {(t1 - t0)*1000:.2f} ms")
 
     return res
+

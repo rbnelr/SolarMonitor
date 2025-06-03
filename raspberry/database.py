@@ -28,6 +28,7 @@ def get_db_cursor():
         finally:
             cursor.close()
 
+# doing this to lazily create the tables used to work I think, but now gives error for some reason
 def create_tables():
     with get_db_cursor() as cur:
         #cur.execute("DROP TABLE IF EXISTS data")
