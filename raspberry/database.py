@@ -55,4 +55,21 @@ def create_tables():
             ALTER TABLE data ADD CONSTRAINT fk_channel_id FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
         """)
     
-    
+def get_channels():
+    with get_db_cursor() as cur:
+        cur.execute("""
+            INSERT IGNORE INTO channels (name, type, unit)
+            VALUES ('solar_power', 'power', 'W')
+        """)
+        cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power'")
+        power_id = cur.fetchone()[0]
+
+        cur.execute("""
+            INSERT IGNORE INTO channels (name, type, unit)
+            VALUES ('solar_power_by_minute', 'power', 'W')
+        """)
+        cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power_by_minute'")
+        power_by_minute_id = cur.fetchone()[0]
+
+        #print(f"power: {power_id}, power_by_minute: {power_by_minute_id}")
+        return power_id, power_by_minute_id
