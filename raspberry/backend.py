@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def query_channel_range(channel_id, start, end, gap_thres):
+def query_channel_range(channel_id, start, end, gap_thres, gap_fill_fix=False):
     with db.get_db_cursor() as cur:
         t0 = time.perf_counter()
         t0f = time.perf_counter()
@@ -41,6 +41,11 @@ def query_channel_range(channel_id, start, end, gap_thres):
                 if row[0] - prev_row[0] > gap_thres:
                     timestamps.append(None)
                     values.append(None)
+                    if gap_fill_fix: # fix for plotly filling gaps for fill="tozeroy"
+                        timestamps.append(prev_row[0])
+                        timestamps.append(row[0] - 60*1000)
+                        values.append(0)
+                        values.append(0)
                 
                 timestamps.append(row[0])
                 values.append(row[1])
@@ -78,7 +83,7 @@ async def get_data():
 
     res = {
         'power': query_channel_range(power_id, start, end, gap_thres_power),
-        'by_minute': query_channel_range(power_by_minute_id, start, end, gap_thres_by_minute),
+        'by_minute': query_channel_range(power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True),
     }
 
     t1 = time.perf_counter()
