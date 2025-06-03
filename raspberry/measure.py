@@ -111,6 +111,8 @@ def high_res_measurement_loop(db_conn, db_cursor):
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
             by_minute_avg_power = status['ret_aenergy']['by_minute'][0] * (60.0 / 1000) # mWh / min -> W (avg in minute)
 
+            # TODO: don't insert if power is zero to save space and speed up queries as well as clearer data
+
             if prev_by_minute_ts == by_minute_ts:
                 # insert per-second power data
                 db_cursor.execute("insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
