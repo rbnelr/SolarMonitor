@@ -79,7 +79,9 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
             linewidth: 1,
             linecolor: '#d0d0d0',
             mirror: true,
-            tickfont: { size: 15 }
+            tickfont: { size: 15 },
+            fixedrange: true,
+            range: [-100, 1100],
           },
           margin: { t: 20, r: 65, b: 55, l: 65 },
           autosize: true,
@@ -91,11 +93,12 @@ const Graph: React.FC<GraphProps> = ({ reloadTrigger, setIsLoading }) => {
             y: 1,
             xanchor: "left",
             bgcolor: "transparent"
-          }
+          },
+          dragmode: "pan",
         }}
         style={{ width: "100%", height: "100%" }}
         useResizeHandler={true}
-        config={{ responsive: true }}
+        config={{ responsive: true, scrollZoom: true, displayModeBar: false }}
       />
     </div>
   );
