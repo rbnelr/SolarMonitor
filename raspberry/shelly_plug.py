@@ -1,8 +1,5 @@
 from os import error
 import requests
-import time
-import json
-from datetime import datetime, timezone
 
 # https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Switch/
 def read_shelly_plug_status():
@@ -43,26 +40,26 @@ def read_shelly_plug_status():
 # ret_aenergy is just the negative flow (due to solar panel)
 # by_minute contains measured energy per minute (previous 3 minutes)
 
-# Apparently accurate to milliseconds
-# volkzaehler_timestamp is int in milliseconds with unix epoch (1.1.1970)
-def get_volkzaehler_timestamp():
-	unix_timestamp_float = datetime.now(timezone.utc).timestamp()
-	timestamp = round(unix_timestamp_float * 1000)
-	return timestamp
+'''
+def measure_to_file():
+	with open("data.txt", "a") as output_file:
+		while True:
+			try:
+				status = read_shelly_plug_status()
+				ts = get_volkzaehler_timestamp()
 
-def time_from_timestamp(timestamp):
-	return datetime.fromtimestamp(float(timestamp)/1000)
+				print(f"{time_from_timestamp(ts)}:\n{json.dumps(status, indent=4)}\n")
 
-with open("data.txt", "a") as output_file:
-	while True:
-		try:
-			status = read_shelly_plug_status()
-			ts = get_volkzaehler_timestamp()
+				output_file.write(f"{ts}: {json.dumps(status)}\n")
+				output_file.flush()
+			except:
+				pass
+			time.sleep(1)
+'''
 
-			print(f"{time_from_timestamp(ts)}:\n{json.dumps(status, indent=4)}\n")
+def get_measurement_by_second():
+	status = read_shelly_plug_status()
+	ts = get_volkzaehler_timestamp()
 
-			output_file.write(f"{ts}: {json.dumps(status)}\n")
-			output_file.flush()
-		except:
-			pass
-		time.sleep(1)
+	# TODO:
+

@@ -1,9 +1,9 @@
 import database as db
-import json
 
 db.create_tables()
-power_id, power_by_minute_id = db.get_channels()
+power_id, power_by_minute_id = db.get_or_create_channels()
 
+'''
 def insert_textfile_data():
     with db.get_db_cursor() as cur:
         with open('data.txt', 'r') as f:
@@ -31,4 +31,4 @@ def insert_textfile_data():
                         [(power_id, x['timestamp'], x['value']) for x in data_power])
         cur.executemany("""insert into data (channel_id, timestamp, value) values (%s,%s,%s)""",
                         [(power_by_minute_id, x['timestamp'], x['value']) for x in data_by_minute])
-        
+'''
