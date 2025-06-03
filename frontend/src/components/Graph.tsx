@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import { EMPTY_DATA, fetchData } from "../api";
 import type { Data } from "../api";
@@ -11,6 +11,12 @@ interface GraphProps {
 const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
   const [graphData, setGraphData] = useState<Data>(EMPTY_DATA);
   const [error, setError] = useState<string | null>(null);
+  
+  //const getLatestDataTime = () => {
+  //  const t1 = graphData.by_minute.timestamps;
+  //  const t2 = graphData.by_minute.timestamps;
+  //  return Math.max(t1[t1.length - 1], t2[t2.length - 1]);
+  //};
 
   useEffect(() => {
     async function loadGraphData() {
@@ -34,8 +40,30 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
         }
       }
     }
+    
+    //const oldLatest = getLatestDataTime();
 
     loadGraphData();
+
+    /*if (xRange.current !== null) {
+      // Move time axis to show new data if previous data was close to right edge of graph
+      const newLatest = getLatestDataTime();
+
+      const xRangeWidth = xRange.current[1] - xRange.current[0];
+      const oldScreenLoc = (oldLatest - xRange.current[0]) / xRangeWidth;
+      const newScreenLoc = (newLatest - xRange.current[0]) / xRangeWidth;
+
+      console.log("xRange", xRange.current);
+      console.log("oldScreenLoc", oldScreenLoc);
+      console.log("newScreenLoc", newScreenLoc);
+
+      const interestedInAutoMove = oldScreenLoc <= 1.001;
+      const needToAutoMove = newScreenLoc >= 0.95;
+      if (interestedInAutoMove && needToAutoMove) {
+        setXRange(newScreenLoc - xRangeWidth * 0.95, newScreenLoc + xRangeWidth * 0.05);
+      }
+    }*/
+
   }, [updateTrigger, setIsLoading]);
 
   // Performance: (From what I can tell)
@@ -83,7 +111,25 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
             linewidth: 1,
             linecolor: '#d0d0d0',
             mirror: true,
-            tickfont: { size: 15 }
+            tickfont: { size: 15 },
+
+            //rangeslider: { visible: true },
+            rangeselector: { // Seemingly don't actually work with panning, but this is easy to implement myself
+              buttons: [
+                {
+                  count: 1,
+                  label: "1h",
+                  step: "hour",
+                  stepmode: "backward"
+                },
+                {
+                  count: 1,
+                  label: "1d",
+                  step: "day",
+                  stepmode: "backward"
+                }
+              ]
+            },
           },
           yaxis: {
             showline: true,
@@ -112,7 +158,6 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
           uirevision: 'true'
         }}
         style={{ width: "100%", height: "100%" }}
-        useResizeHandler={true}
         config={{ responsive: true, scrollZoom: true, displayModeBar: false }}
       />
     </div>
