@@ -53,7 +53,7 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-      <Graph updateTrigger={updateTrigger} setIsLoading={setIsLoading} />
+      <Graph updateTrigger={updateTrigger} setIsLoading={setIsLoading} autoUpdating={autoUpdate} />
     </div>
   );
 };

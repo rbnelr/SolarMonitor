@@ -6,39 +6,42 @@ import type { Data } from "../api";
 
 interface GraphProps {
   updateTrigger: number;
+  autoUpdating: boolean;
   setIsLoading?: (loading: boolean) => void;
 }
 
-const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
+const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating }) => {
   const ref = useRef<HTMLDivElement>(null);
   const layout = useRef<Plotly.Layout | null>(null);
   const plotData = useRef<Plotly.Data[] | null>(null);
   //const data = useRef<Data>(EMPTY_DATA);
   const [error, setError] = useState<string | null>(null);
 
-  //const getXRange = () => {
-  //  // Even though I provide plotly with number timestamps, it returns strings, so we need to convert them to dates
-  //  if (plotRef.current === null) return null;
-  //  console.log(plotRef.current);
-  //  const range = plotRef.current.props.layout.xaxis!.range!;
-  //  return [new Date(range[0]).getTime(), new Date(range[1]).getTime()];
-  //};
-  //const setXRange = (range: [number, number]) => {
-  //  if (plotRef.current !== null) {
-  //    //plotRef.current.layout.xaxis!.range = range;
-  //    //plotRef.current.relayout({xaxis: {range: range}});
-  //  }
-  //};
+  // Could not find a better way of doing this, and this still does not give me the range while panning happens, only when mouse is released
+  const getXRange = () => {
+    // Even though I provide plotly with number timestamps, it returns strings, so we need to convert them to dates
+    if (ref.current === null || ref.current._fullLayout === undefined) return null;
+    const range = ref.current._fullLayout.xaxis!.range!;
+    return [new Date(range[0]).getTime(), new Date(range[1]).getTime()];
+  };
 
-  //const getLatestDataTime = () => {
-  //  const t1 = graphData.by_minute.timestamps;
-  //  const t2 = graphData.by_minute.timestamps;
-  //  return Math.max(t1[t1.length - 1], t2[t2.length - 1]);
-  //};
+  const getLatestDataTime = () => {
+    var maxTime = -Infinity;
+    for (const trace of plotData.current!) {
+      if (trace.x.length > 0) {
+        maxTime = Math.max(maxTime, trace.x[trace.x.length - 1]);
+      }
+    }
+    return maxTime;
+  };
 
   // Init
   useEffect(() => {
     //if (!ref.current) return;
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
     layout.current = {
       xaxis: {
@@ -48,6 +51,8 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
         linecolor: '#d0d0d0',
         mirror: true,
         tickfont: { size: 15 },
+        autorange: false,
+        range: [todayStart.getTime(), todayEnd.getTime()],
       },
       yaxis: {
         showline: true,
@@ -113,9 +118,38 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
     ];
 
     Plotly.newPlot(ref.current, plotData.current, layout.current, { responsive: true, scrollZoom: true, displayModeBar: false });
+    
+    ref.current!.on('plotly_relayout', function(eventdata : any) {
+      console.log('plotly_relayout! ', eventdata);
+    });
   }, []);
 
   useEffect(() => {
+    const oldLatest = getLatestDataTime();
+
+    const autopan = () => {
+      const enable = autoUpdating; // && Not currently panning by mouse (but that's seemingly not possible to know with plotly) 
+
+      const xRange = getXRange();
+      if (xRange !== null) {
+        // Move time axis to show new data if previous data was close to right edge of graph
+        const newLatest = getLatestDataTime();
+      
+        const xRangeWidth = xRange[1] - xRange[0];
+        const oldScreenLoc = (oldLatest - xRange[0]) / xRangeWidth;
+        const newScreenLoc = (newLatest - xRange[0]) / xRangeWidth;
+      
+        //console.log(`screenLoc ${oldScreenLoc} => ${newScreenLoc}`);
+      
+        const interestedInAutoMove = oldScreenLoc <= 1.001;
+        const needToAutoMove = newScreenLoc >= 0.95;
+        if (enable && interestedInAutoMove && needToAutoMove) {
+          // Applies at next Plotly.react
+          layout.current!.xaxis!.range = [Math.round(newLatest - 0.95 * xRangeWidth), Math.round(newLatest + 0.05 * xRangeWidth)];
+        }
+      }
+    }
+
     async function loadGraphData() {
       setIsLoading?.(true);
       setError(null);
@@ -134,8 +168,10 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
         plotData.current![2].x = data.meter.timestamps;
         plotData.current![2].y = data.meter.values;
 
-        Plotly.react(ref.current, plotData.current, layout.current)
+        autopan();
 
+        Plotly.react(ref.current, plotData.current, layout.current);
+        
       } catch (err) {
         setError("Failed to load data.");
       } finally {
@@ -148,29 +184,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading }) => {
       }
     }
     
-    //const oldLatest = getLatestDataTime();
-    
     loadGraphData();
-    
-    //const xRange = getXRange();
-    //if (xRange !== null) {
-    //  // Move time axis to show new data if previous data was close to right edge of graph
-    //  const newLatest = getLatestDataTime();
-    //
-    //  const xRangeWidth = xRange[1] - xRange[0];
-    //  const oldScreenLoc = (oldLatest - xRange[0]) / xRangeWidth;
-    //  const newScreenLoc = (newLatest - xRange[0]) / xRangeWidth;
-    //
-    //  console.log("oldScreenLoc", oldScreenLoc);
-    //  console.log("newScreenLoc", newScreenLoc);
-    //
-    //  const interestedInAutoMove = oldScreenLoc <= 1.001;
-    //  const needToAutoMove = newScreenLoc >= 0.95;
-    //  if (interestedInAutoMove && needToAutoMove) {
-    //    setXRange([newScreenLoc - xRangeWidth * 0.95, newScreenLoc + xRangeWidth * 0.05]);
-    //  }
-    //}
-
   }, [updateTrigger, setIsLoading]);
 
 
