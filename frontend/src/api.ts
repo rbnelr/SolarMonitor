@@ -1,10 +1,11 @@
 // Data in struct of arrays format since plotly expects it this way
 // Should also be more efficient than array of objects due to how json encodes it
 export interface Data {
-  power: { timestamps: number[]; values: number[] };
-  by_minute: { timestamps: number[]; values: number[] };
+  solar: { timestamps: number[]; values: number[] };
+  solar_by_minute: { timestamps: number[]; values: number[] };
   meter: { timestamps: number[]; values: number[] };
-};
+  load: { timestamps: number[]; values: number[] };
+}
 //export const EMPTY_DATA: Data = {
 //  power: { timestamps: [], values: [] },
 //  by_minute: { timestamps: [], values: [] },
