@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Plotly from "plotly.js/dist/plotly";
-import { EMPTY_DATA, fetchData } from "../api";
+import { fetchData } from "../api";
 import type { Data } from "../api";
 
 
@@ -11,18 +11,22 @@ interface GraphProps {
 }
 
 const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const div = useRef<HTMLDivElement>(null);
   const layout = useRef<Plotly.Layout | null>(null);
   const plotData = useRef<Plotly.Data[] | null>(null);
-  //const data = useRef<Data>(EMPTY_DATA);
   const [error, setError] = useState<string | null>(null);
 
   // Could not find a better way of doing this, and this still does not give me the range while panning happens, only when mouse is released
   const getXRange = () => {
     // Even though I provide plotly with number timestamps, it returns strings, so we need to convert them to dates
-    if (ref.current === null || ref.current._fullLayout === undefined) return null;
-    const range = ref.current._fullLayout.xaxis!.range!;
+    if (div.current === null || (div.current as any)._fullLayout === undefined) return null;
+    const range = (div.current as any)._fullLayout.xaxis!.range!;
     return [new Date(range[0]).getTime(), new Date(range[1]).getTime()];
+  };
+  const getYRange = () => {
+    if (div.current === null || (div.current as any)._fullLayout === undefined) return null;
+    const range = (div.current as any)._fullLayout.yaxis!.range!;
+    return [range[0], range[1]];
   };
 
   const getLatestDataTime = () => {
@@ -34,6 +38,8 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
     }
     return maxTime;
   };
+
+  const leftMargin = 65;
 
   // Init
   useEffect(() => {
@@ -63,10 +69,12 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         // However M actually stands for million not mega, so instead of GW (gigawatt) we get BW (billion watt), which is wrong, but probably irrelevant for our use case
         ticksuffix: "W",
         tickfont: { size: 15 },
-        fixedrange: true, // TODO: Allow zooming and pan of y axis, how? Toggle x/y being fixed with ctrl key and or toggle button (good for mobile)?
+        autorange: false,
+        fixedrange: false, // TODO: Allow zooming and pan of y axis, how? Toggle x/y being fixed with ctrl key and or toggle button (good for mobile)?
+        zoom: "up",
         range: [-100, 1100],
       },
-      margin: { t: 20, r: 20, b: 55, l: 65 },
+      margin: { t: 20, r: 20, b: 55, l: leftMargin },
       autosize: true,
       plot_bgcolor: '#f8f8f8',
       paper_bgcolor: "white",
@@ -117,11 +125,11 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
       }
     ];
 
-    Plotly.newPlot(ref.current, plotData.current, layout.current, { responsive: true, scrollZoom: true, displayModeBar: false });
+    Plotly.newPlot(div.current, plotData.current, layout.current, { responsive: true, scrollZoom: true, displayModeBar: false });
     
-    ref.current!.on('plotly_relayout', function(eventdata : any) {
-      console.log('plotly_relayout! ', eventdata);
-    });
+    //div.current!.on('plotly_relayout', function(eventdata : any) {
+    //  console.log('plotly_relayout! ', eventdata);
+    //});
   }, []);
 
   useEffect(() => {
@@ -170,7 +178,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
 
         autopan();
 
-        Plotly.react(ref.current, plotData.current, layout.current);
+        Plotly.react(div.current, plotData.current, layout.current);
         
       } catch (err) {
         setError("Failed to load data.");
@@ -187,6 +195,42 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
     loadGraphData();
   }, [updateTrigger, setIsLoading]);
 
+  // pan/scroll x on main plot, but y while hovering y axis by toggling yaxis.fixedrange
+  useEffect(() => {
+    if (!div.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Get plot dimensions
+      const rect = div.current!.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+
+      // Check if mouse is over y-axis area
+      const isOverYAxis = mouseX < leftMargin;
+      const wasOverYAxis = layout.current!.yaxis!.fixedrange! == false;
+      
+      //console.log('Over y-axis:', isOverYAxis);
+      if (isOverYAxis != wasOverYAxis) {
+        layout.current!.yaxis!.fixedrange = !isOverYAxis;
+        Plotly.relayout(div.current, {
+          yaxis: {
+            fixedrange: !isOverYAxis,
+            // Explicitly set range to range it is already at becaue for some reason if I don't it autofits despite autorange=false
+            // Maybe this is intended (specify what behavior you want when toggling on fixedrange?)
+            // Seems like this somehow even retains my original range (I would have expected it to be reset to my original range on the next Plotly.react)
+            // So with this I get my desired behavior
+            range: getYRange()
+          }
+        });
+      }
+    };
+
+    div.current.addEventListener('mousemove', handleMouseMove);
+    
+    // Cleanup
+    return () => {
+      div.current?.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   // Performance: (From what I can tell)
   // spline smoothing for traces is quite slow so prefer linear display
@@ -200,7 +244,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
   return (
     <div className="plot-container">
       {error && <div className="error-message">{error}</div>}
-      <div ref={ref} style={{ width: "100%", height: "100%" }}/>
+      <div ref={div} style={{ width: "100%", height: "100%" }}/>
     </div>
   );
 };
