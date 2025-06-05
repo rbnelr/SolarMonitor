@@ -4,17 +4,122 @@ from datetime import datetime, timedelta
 import database as db
 import time
 import timestamps as ts
+import traceback
 
 app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Allow frontend's origin
+    allow_origins=["http://localhost:5173"], # Allow frontend's origin
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["GET"],
+    allow_headers=["*"], # Allow all headers
 )
+
+def process_results(results, gap_thres, gap_fill_fix):
+    timestamps = []
+    values = []
+    
+    if len(results) == 0: return timestamps, values
+    
+    prev_row = results[0] # no gap on first row
+    for row in results:
+        # add None entries for gaps if we determine data is missing (so frontend can show gaps by not drawing lines)
+        if row[0] - prev_row[0] > gap_thres:
+            timestamps.append(None)
+            values.append(None)
+            if gap_fill_fix: # fix for plotly filling gaps for fill="tozeroy"
+                timestamps.append(prev_row[0])
+                timestamps.append(row[0] - 60*1000)
+                values.append(0)
+                values.append(0)
+        
+        timestamps.append(row[0])
+        values.append(row[1])
+
+        prev_row = row
+
+    return timestamps, values
+
+def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
+    if len(meter_data['timestamps']) == 0 or len(solar_data['timestamps']) == 0:
+        return { 'timestamps': [], 'values': [] }
+
+    t0 = time.perf_counter()
+
+    print(f"start: {start}, end: {end}")
+
+    offs_meter = 0 # -4*1000 # artificial offset to make meter data align with solar data (which is more accurate, since based on solar dips we can sync it and measurements can't predict the future)
+    offs_solar = 0
+
+    start = max(ts.local_time_to_timestamp(start), min(meter_data['timestamps'][0] + offs_meter, solar_data['timestamps'][0] + offs_solar))
+    end   = min(ts.local_time_to_timestamp(end  ), max(meter_data['timestamps'][-1] + offs_meter, solar_data['timestamps'][-1] + offs_solar))
+
+    print(f"start: {start}, end: {end}")
+
+    interval = 4*1000
+    sample_rate = 1000 # Should get this from the database!
+
+    start_i = start // interval
+    end_i   = end // interval # include timeperiod number
+    count   = end_i+1 - start_i
+
+    print(f"start_i: {start_i}, end_i: {end_i}, count: {count}")
+
+    res_tim = [i*interval - interval//2 for i in range(start_i, end_i+1)] # center the interval makes most sense for the plot
+    res_val = [0]*count
+
+    # 'accurate' accumulation, anyway here's a picture:
+    #  [        5 seconds        ][        5 seconds        ]
+    # [    ][    ][    ][    ][ L|R][    ][    ][    ][    ]
+    # compute weight of left and right part of the sample falling into different intervals
+    def accumulate(data, offs):
+        # compute duration of each measurement based on previous timestamp
+        times = data['timestamps']
+        values = data['values']
+
+        prev_timestamp = (times[0] + offs - sample_rate) / interval
+
+        for i in range(0, len(times)):
+            timestamp = times[i]
+            if timestamp is None: continue # gap count as 0
+            # keep all timestamps and durations in interval to minimize computation, yes this is confusing
+            timestamp = (timestamp + offs) / interval
+            
+            # duration of sample using previous timestamp (relative to interval)
+            dur = timestamp - prev_timestamp
+            weighted_value = values[i] * dur # weight the value to result in average power in interval
+            # compute the interval the end of the sample falls into
+            tmp = int(timestamp)
+            interval_ts = float(tmp)
+            right_idx = tmp - start_i
+
+            if prev_timestamp >= interval_ts:
+                # entire sample is in the interval, fastpath
+                if right_idx >= 0 and right_idx < count:
+                    res_val[right_idx] += weighted_value
+            else:
+                # split sample, compute duration of l/r part and weight accordingly
+                right_dur = timestamp - interval_ts
+                right_value = weighted_value * (right_dur / dur) # part of the energy falling into the right interval
+                left_value = weighted_value - right_value
+
+                left_idx = right_idx - 1
+                if left_idx  >= 0 and right_idx < count:  res_val[left_idx ] += left_value
+                if right_idx >= 0 and right_idx < count:  res_val[right_idx] += right_value
+
+            prev_timestamp = timestamp
+    
+    accumulate(meter_data, offs_meter)
+    accumulate(solar_data, offs_solar)
+
+    res = { 'timestamps': res_tim, 'values': res_val }
+    
+    t1 = time.perf_counter()
+    print(f" filter_and_sum_meter_and_solar time: {(t1 - t0)*1000:.2f} ms")
+
+    return res
 
 def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=False):
     try:
@@ -31,30 +136,8 @@ def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=Fal
         t1f = time.perf_counter()
 
         t0p = time.perf_counter()
-        timestamps = []
-        values = []
 
-        if len(results) > 0:
-            prev_row = results[0] # no gap on first row
-            for row in results:
-                # add None entries for gaps if we determine data is missing (so frontend can show gaps by not drawing lines)
-                if row[0] - prev_row[0] > gap_thres:
-                    timestamps.append(None)
-                    values.append(None)
-                    if gap_fill_fix: # fix for plotly filling gaps for fill="tozeroy"
-                        timestamps.append(prev_row[0])
-                        timestamps.append(row[0] - 60*1000)
-                        values.append(0)
-                        values.append(0)
-                
-                timestamps.append(row[0])
-                values.append(row[1])
-
-                prev_row = row
-
-        # TODO: is this slow in python? optimize? how? numpy or directly in sql?
-        # how slow is json conversion? If sql produces string, can we avoid expensive conversion?
-        #res = { 'timestamps': [row[0] for row in results], 'values': [row[1] for row in results] }
+        timestamps, values = process_results(results, gap_thres, gap_fill_fix)
 
         res = { 'timestamps': timestamps, 'values': values }
         t1p = time.perf_counter()
@@ -68,7 +151,7 @@ def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=Fal
 
         return res
     except Exception as ex:
-        print(f"Error querying channel range: {ex}")
+        print(f"Error querying channel range: {traceback.format_exc()}")
         return { 'timestamps': [], 'values': [] }
 
 @app.get("/data")
@@ -87,15 +170,18 @@ async def get_data():
         with db.get_db_cursor() as cur:
             power_id, power_by_minute_id = db.get_channels(cur)
 
-            power_data = query_channel_range(cur, power_id, start, end, gap_thres_power)
-            by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
+            solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power)
+            solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
         with db.get_vz_db_cursor() as cur2:
             vz_meter_data = query_channel_range(cur2, 5, start, end, gap_thres_power)
 
+        load_data = filter_and_sum_meter_and_solar(vz_meter_data, solar_data, start, end)
+
         res = {
-            'power': power_data,
-            'by_minute': by_minute_data,
-            'meter': vz_meter_data
+            'solar': solar_data,
+            'solar_by_minute': solar_by_minute_data,
+            'meter': vz_meter_data,
+            'load': load_data
         }
 
         t1 = time.perf_counter()
@@ -103,7 +189,9 @@ async def get_data():
 
         return res
     except Exception as ex:
-        print(f"Error querying data: {ex}")
+        print(f"Error querying data: {traceback.format_exc()}")
         raise HTTPException(status_code=404, detail=f"Error querying data")
-        
-
+  
+#if __name__ == "__main__":
+#    import asyncio
+#    asyncio.run(get_data())

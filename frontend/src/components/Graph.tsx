@@ -94,13 +94,10 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         x: [],
         y: [],
         type: "scatter",
-        mode: "lines+markers",
-        fill: "tozeroy",
-        fillcolor: "#F3D70030",
-        connectgaps: false,
-        marker: { color: "#F3D700" },
-        line: { width: 2.5, shape: "vh", simplify: true },
-        name: "by_minute",
+        mode: "lines",
+        marker: { color: "#1F303EA0" },
+        line: { width: 1.0, shape: "linear", simplify: true },
+        name: "meter",
         showlegend: true,
       },
       {
@@ -108,21 +105,37 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         y: [],
         type: "scatter",
         mode: "lines",
-        marker: { color: "#201000A0" },
-        line: { width: 2.5, shape: "linear", simplify: true },
+        fill: "tozeroy",
+        fillcolor: "#1F303E60",
+        connectgaps: false,
+        marker: { color: "#1F303E" },
+        line: { width: 2.0, shape: "linear", simplify: true },
+        name: "load",
+        showlegend: true,
+      },
+      {
+        x: [],
+        y: [],
+        type: "scatter",
+        mode: "lines",
+        fill: "tozeroy",
+        fillcolor: "#F3D70040",
+        marker: { color: "#F3D700C0" },
+        line: { width: 2.0, shape: "linear", simplify: true },
         name: "apower",
         showlegend: true,
       },
-      {
-        x: [],
-        y: [],
-        type: "scatter",
-        mode: "lines",
-        marker: { color: "#001020A0" },
-        line: { width: 2.5, shape: "linear", simplify: true },
-        name: "meter",
-        showlegend: true,
-      }
+      //{
+      //  x: [],
+      //  y: [],
+      //  type: "scatter",
+      //  mode: "lines+markers",
+      //  connectgaps: false,
+      //  marker: { color: "#F3D700" },
+      //  line: { width: 1.0, shape: "vh", simplify: true },
+      //  name: "by_minute",
+      //  showlegend: true,
+      //}
     ];
 
     Plotly.newPlot(div.current, plotData.current, layout.current, { responsive: true, scrollZoom: true, displayModeBar: false });
@@ -169,12 +182,15 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         //console.log('Received data:', data);
 
         // Really unsure how I'm supposed to do this with Plotly.restyle, which if I understand correctly is supposed to be used for changing parts of the data
-        plotData.current![0].x = data.by_minute.timestamps;
-        plotData.current![0].y = data.by_minute.values;
-        plotData.current![1].x = data.power.timestamps;
-        plotData.current![1].y = data.power.values;
-        plotData.current![2].x = data.meter.timestamps;
-        plotData.current![2].y = data.meter.values;
+        
+        plotData.current![0].x = data.meter.timestamps;
+        plotData.current![0].y = data.meter.values;
+        plotData.current![1].x = data.load.timestamps;
+        plotData.current![1].y = data.load.values;
+        //plotData.current![2].x = data.solar_by_minute.timestamps;
+        //plotData.current![2].y = data.solar_by_minute.values;
+        plotData.current![2].x = data.solar.timestamps;
+        plotData.current![2].y = data.solar.values;
 
         autopan();
 

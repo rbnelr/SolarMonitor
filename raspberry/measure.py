@@ -2,56 +2,11 @@ import database as db
 import requests
 import timestamps as ts
 import time
+import math
+import traceback
 
 #db.create_tables()
 power_id, power_by_minute_id = db.get_or_create_channels()
-
-'''
-def measure_to_file():
-	with open("data.txt", "a") as output_file:
-		while True:
-			try:
-				status = read_shelly_plug_status()
-				ts = get_volkzaehler_timestamp()
-
-				print(f"{time_from_timestamp(ts)}:\n{json.dumps(status, indent=4)}\n")
-
-				output_file.write(f"{ts}: {json.dumps(status)}\n")
-				output_file.flush()
-			except:
-				pass
-			time.sleep(1)
-'''
-
-'''
-def insert_textfile_data():
-    with db.get_db_cursor() as cur:
-        with open('data.txt', 'r') as f:
-            lines = f.readlines()
-            
-        data_power = []
-        data_by_minute = []
-        for line in lines:
-            timestamp, json_str = line.split(': ', 1)
-            reading = json.loads(json_str)
-
-            data_power.append({
-                'timestamp': int(timestamp),
-                'value': -reading['apower'], # W
-            })
-            by_minute = {
-                'timestamp': int(reading['ret_aenergy']['minute_ts']) * 1000,
-                'value': reading['ret_aenergy']['by_minute'][0] * (60.0 / 1000), # mWh / min -> W (avg in minute)
-            }
-
-            if not data_by_minute or data_by_minute[-1]['timestamp'] != by_minute['timestamp']:
-                data_by_minute.append(by_minute)
-
-        cur.executemany("""insert into data (channel_id, timestamp, value) values (%s,%s,%s)""",
-                        [(power_id, x['timestamp'], x['value']) for x in data_power])
-        cur.executemany("""insert into data (channel_id, timestamp, value) values (%s,%s,%s)""",
-                        [(power_by_minute_id, x['timestamp'], x['value']) for x in data_by_minute])
-'''
 
 #"id": 0,
 #"source": "WS_in",
@@ -95,23 +50,30 @@ def read_shelly_plug_status():
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        print(f"Failed to read Shelly status: {e}")
+        print(f"Failed to read Shelly status: {traceback.format_exc()}")
         raise
 
 def high_res_measurement_loop(db_conn, db_cursor):
     period = 1
     prev_by_minute_ts = 0
+    zero_power_count = 0
+    zero_power_threshold = math.ceil(60 / period)
     while True:
         try:
             status = read_shelly_plug_status()
 
             timestamp = ts.get_volkzaehler_timestamp()
-            apower = -status['apower'] # Negative Watts
+            apower = -status['apower'] # Negative Watts = solar power
+
+            # If power is zero for a while, assume night and don't write to db to save space and speed up queries
+            if apower <= 0.001: zero_power_count += 1
+            else: zero_power_count = 0
+            if zero_power_count >= zero_power_threshold:
+                print(f"Zero power for {zero_power_count*period} seconds, skipping...")
+                continue
 
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
-            by_minute_avg_power = status['ret_aenergy']['by_minute'][0] * (60.0 / 1000) # mWh / min -> W (avg in minute)
-
-            # TODO: don't insert if power is zero to save space and speed up queries as well as clearer data
+            by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)
 
             if prev_by_minute_ts == by_minute_ts:
                 # insert per-second power data
