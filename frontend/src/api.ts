@@ -5,11 +5,11 @@ export interface Data {
   by_minute: { timestamps: number[]; values: number[] };
   meter: { timestamps: number[]; values: number[] };
 };
-export const EMPTY_DATA: Data = {
-  power: { timestamps: [], values: [] },
-  by_minute: { timestamps: [], values: [] },
-  meter: { timestamps: [], values: [] },
-};
+//export const EMPTY_DATA: Data = {
+//  power: { timestamps: [], values: [] },
+//  by_minute: { timestamps: [], values: [] },
+//  meter: { timestamps: [], values: [] },
+//};
 
 export async function fetchData(): Promise<Data> {
   const response = await fetch('http://localhost:8000/data');
