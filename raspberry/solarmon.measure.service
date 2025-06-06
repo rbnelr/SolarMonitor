@@ -1,0 +1,14 @@
+[Unit]
+Description=Solar Power Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/SolarMonitor/raspberry
+ExecStart=/usr/bin/python3 measure.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target 

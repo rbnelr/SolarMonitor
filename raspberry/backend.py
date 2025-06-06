@@ -31,7 +31,7 @@ def process_results(results, gap_thres, gap_fill_fix):
             values.append(None)
             if gap_fill_fix: # fix for plotly filling gaps for fill="tozeroy"
                 timestamps.append(prev_row[0])
-                timestamps.append(row[0] - 60*1000)
+                timestamps.append(row[0]) #  - 60*1000
                 values.append(0)
                 values.append(0)
         
@@ -170,7 +170,7 @@ async def get_data():
         with db.get_db_cursor() as cur:
             power_id, power_by_minute_id = db.get_channels(cur)
 
-            solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power)
+            solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power, gap_fill_fix=True)
             solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
         with db.get_vz_db_cursor() as cur2:
             vz_meter_data = query_channel_range(cur2, 5, start, end, gap_thres_power)

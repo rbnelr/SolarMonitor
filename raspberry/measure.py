@@ -4,6 +4,8 @@ import timestamps as ts
 import time
 import math
 import traceback
+import logging
+log = logging.setup_logging('solarmon.measure')
 
 #db.create_tables()
 power_id, power_by_minute_id = db.get_or_create_channels()
@@ -50,7 +52,7 @@ def read_shelly_plug_status():
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        print(f"Failed to read Shelly status: {traceback.format_exc()}")
+        log.error(f"Failed to read Shelly status: {traceback.format_exc()}")
         raise
 
 def high_res_measurement_loop(db_conn, db_cursor):
@@ -58,6 +60,8 @@ def high_res_measurement_loop(db_conn, db_cursor):
     prev_by_minute_ts = 0
     zero_power_count = 0
     zero_power_threshold = math.ceil(60 / period)
+    log.info("Starting measurement loop")
+    
     while True:
         try:
             status = read_shelly_plug_status()
@@ -69,7 +73,7 @@ def high_res_measurement_loop(db_conn, db_cursor):
             if apower <= 0.001: zero_power_count += 1
             else: zero_power_count = 0
             if zero_power_count >= zero_power_threshold:
-                print(f"Zero power for {zero_power_count*period} seconds, skipping...")
+                log.debug(f"Zero power for {zero_power_count*period} seconds, skipping...")
                 continue
 
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
@@ -87,22 +91,34 @@ def high_res_measurement_loop(db_conn, db_cursor):
                 db_cursor.executemany("insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
                     [(power_id, timestamp, apower),
                     (power_by_minute_id, by_minute_ts, by_minute_avg_power)])
-                print(f"minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
+                log.info(f"minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
 
             db_conn.commit()
             prev_by_minute_ts = by_minute_ts
-        except Exception as e:
+        except Exception:
             db_conn.rollback()
-            print(f"Error trying to insert data into database, possibly because app was restarted to quickly, retrying...")
+            log.error(f"Error in measurement loop: {traceback.format_exc()}")
+            log.info("Retrying in 5 seconds...")
+            time.sleep(5)
         except KeyboardInterrupt:
+            log.info("Received keyboard interrupt, shutting down...")
             break
         finally:
             time.sleep(period)
 
-while True:
-    try:
-        with db.get_db_conn() as db_conn:
-            with db_conn.cursor() as db_cursor:
-                high_res_measurement_loop(db_conn, db_cursor)
-    except Exception:
-        raise
+def main():
+    log.info("measure.py starting up")
+    retry_delay = 30  # seconds
+    
+    while True:
+        try:
+            with db.get_db_conn() as db_conn:
+                with db_conn.cursor() as db_cursor:
+                    high_res_measurement_loop(db_conn, db_cursor)
+        except Exception as e:
+            log.error(f"Critical error in main loop: {traceback.format_exc()}")
+            log.info(f"Restarting in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+if __name__ == "__main__":
+    main()
