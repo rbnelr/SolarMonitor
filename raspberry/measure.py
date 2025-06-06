@@ -4,8 +4,9 @@ import timestamps as ts
 import time
 import math
 import traceback
-import logging
-log = logging.setup_logging('solarmon.measure')
+import log_setup
+
+log = log_setup.setup_logging('solarmon.measure')
 
 #db.create_tables()
 power_id, power_by_minute_id = db.get_or_create_channels()
