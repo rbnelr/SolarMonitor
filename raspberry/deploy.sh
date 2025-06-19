@@ -56,7 +56,7 @@ echo "Setting up systemd service..."
 
 # Modify service file to use the virtual environment python
 VENV_PATH=$(pwd)/venv
-sed "s|ExecStart=/usr/bin/python3|ExecStart=$VENV_PATH/bin/python|" solarmon.measure.service > solsolarmon.measurear_monitor.service.tmp
+sed "s|ExecStart=/usr/bin/python3|ExecStart=$VENV_PATH/bin/python|" solarmon.measure.service > solarmon.measure.service.tmp
 sudo mv solarmon.measure.service.tmp /etc/systemd/system/solarmon.measure.service
 
 # Set correct permissions

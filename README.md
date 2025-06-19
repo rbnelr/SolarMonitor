@@ -15,3 +15,11 @@ venv\Scripts\deactivate
 
 
 Remember to revert bind-address = 0.0.0.0 in /etc/mysql/mariadb.conf.d/50-server.cnf
+
+
+git clone this repo, then:
+cd raspberry
+chmod +x *.py
+chmod +x *.sh
+because linux hates me
+
