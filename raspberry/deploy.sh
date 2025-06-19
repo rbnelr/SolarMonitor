@@ -17,7 +17,19 @@ if [[ ! -f "measure.py" ]]; then
     exit 1
 fi
 
-# Assume git and python are installed
+# Check if git is installed
+if ! command -v git &> /dev/null; then
+    echo "Installing git..."
+    sudo apt-get install -y git
+fi
+
+# Check if python3 and pip are installed
+if ! command -v python3 &> /dev/null; then
+    echo "Installing python3 and pip..."
+    sudo apt-get install -y python3 python3-pip
+fi
+
+# sudo apt install python3-virtualenv
 
 echo "Pulling latest changes from git..."
 git pull
