@@ -72,6 +72,6 @@ sudo systemctl restart solarmon.measure
 
 # Show status
 echo "Service status:"
-sudo systemctl status solarmon.measure
+#sudo systemctl status solarmon.measure #uhm this locks the console into this mode
 
 echo "done." 
