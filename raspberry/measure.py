@@ -61,6 +61,8 @@ def high_res_measurement_loop(db_conn, db_cursor):
     prev_by_minute_ts = 0
     zero_power_count = 0
     zero_power_threshold = math.ceil(60 / period)
+    zero_power_state = False
+
     log.info("Starting measurement loop")
     
     while True:
@@ -73,9 +75,13 @@ def high_res_measurement_loop(db_conn, db_cursor):
             # If power is zero for a while, assume night and don't write to db to save space and speed up queries
             if apower <= 0.001: zero_power_count += 1
             else: zero_power_count = 0
+            
             if zero_power_count >= zero_power_threshold:
-                log.info(f"Zero power for {zero_power_count*period} seconds, skipping...")
+                if not zero_power_state: # Only print once
+                    zero_power_state = True
+                    log.info(f"Zero power for {zero_power_count*period} seconds, skipping...")
                 continue
+            zero_power_state = False
 
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
             by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)

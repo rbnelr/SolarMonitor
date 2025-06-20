@@ -1,6 +1,7 @@
 # Node.js files
 node_modules/
-.env
+*.env
+!*.template.env
 
 # Python files
 venv/
