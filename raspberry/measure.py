@@ -74,7 +74,7 @@ def high_res_measurement_loop(db_conn, db_cursor):
             if apower <= 0.001: zero_power_count += 1
             else: zero_power_count = 0
             if zero_power_count >= zero_power_threshold:
-                log.debug(f"Zero power for {zero_power_count*period} seconds, skipping...")
+                log.info(f"Zero power for {zero_power_count*period} seconds, skipping...")
                 continue
 
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
