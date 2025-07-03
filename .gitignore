@@ -2,6 +2,7 @@
 node_modules/
 *.env
 !*.template.env
+*.log
 
 # Python files
 venv/

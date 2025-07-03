@@ -98,7 +98,7 @@ def high_res_measurement_loop(db_conn, db_cursor):
                 db_cursor.executemany("insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
                     [(power_id, timestamp, apower),
                     (power_by_minute_id, by_minute_ts, by_minute_avg_power)])
-                log.info(f"minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
+                #log.info(f"minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
 
             db_conn.commit()
             prev_by_minute_ts = by_minute_ts

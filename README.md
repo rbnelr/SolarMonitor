@@ -23,3 +23,4 @@ chmod +x *.py
 chmod +x *.sh
 because linux hates me
 
+systemctl restart mysql
