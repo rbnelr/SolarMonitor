@@ -12,8 +12,15 @@ export interface Data {
 //  meter: { timestamps: [], values: [] },
 //};
 
-export async function fetchData(): Promise<Data> {
-  const response = await fetch('http://localhost:8000/data');
+export async function fetchData(start?: number, end?: number): Promise<Data> {
+  let url = new URL('http://localhost:8000/data');
+
+  if (start !== undefined) url.searchParams.append('start', start.toString());
+  if (end !== undefined) url.searchParams.append('end', end.toString());
+
+  console.log('fetch(%s)', url.toString());
+  const response = await fetch(url.toString());
+
   if (!response.ok) {
     throw new Error('Failed to fetch data');
   }

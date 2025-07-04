@@ -162,9 +162,9 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
       
         //console.log(`screenLoc ${oldScreenLoc} => ${newScreenLoc}`);
       
-        const interestedInAutoMove = oldScreenLoc <= 1.001;
-        const needToAutoMove = newScreenLoc >= 0.95;
-        if (enable && interestedInAutoMove && needToAutoMove) {
+        const interestedInAutopan = oldScreenLoc <= 1.001;
+        const needToAutopan = newScreenLoc >= 0.95;
+        if (enable && interestedInAutopan && needToAutopan) {
           // Applies at next Plotly.react
           layout.current!.xaxis!.range = [Math.round(newLatest - 0.95 * xRangeWidth), Math.round(newLatest + 0.05 * xRangeWidth)];
         }
@@ -178,7 +178,16 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
       const startTime = Date.now();
       
       try {
-        const data = await fetchData();
+        let data;
+
+        const timeRange = getXRange();
+        if (timeRange !== null) {
+          // If autoupdating: always load data up to present
+          // TODO: only if panned to the right (ie only if autopan would even happen)?
+          data = await fetchData(timeRange[0], autoUpdating ? undefined : timeRange[1]);
+        } else {
+          data = await fetchData();
+        }
         //console.log('Received data:', data);
 
         // Really unsure how I'm supposed to do this with Plotly.restyle, which if I understand correctly is supposed to be used for changing parts of the data

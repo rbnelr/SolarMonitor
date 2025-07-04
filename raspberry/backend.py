@@ -27,13 +27,25 @@ def process_results(results, gap_thres, gap_fill_fix):
     for row in results:
         # add None entries for gaps if we determine data is missing (so frontend can show gaps by not drawing lines)
         if row[0] - prev_row[0] > gap_thres:
-            timestamps.append(None)
-            values.append(None)
             if gap_fill_fix: # fix for plotly filling gaps for fill="tozeroy"
+                # plotly does not actually handle gaps correctly if fill is used
+                # gap in line
+                timestamps.append(None)
+                values.append(None)
+                # artificially set line to zero to avoid wrong fill
                 timestamps.append(prev_row[0])
                 timestamps.append(row[0]) #  - 60*1000
                 values.append(0)
                 values.append(0)
+                # gap in line
+                timestamps.append(None)
+                values.append(None)
+            else:
+                # make gap in plotly line trace via nulls
+                timestamps.append(None)
+                values.append(None)
+        if row[0] - prev_row[0] > 1500:
+            print(f"{ts.time_from_timestamp(prev_row[0])} - {ts.time_from_timestamp(row[0])} {row[0] - prev_row[0]}")
         
         timestamps.append(row[0])
         values.append(row[1])
@@ -53,8 +65,8 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
     offs_meter = 0 # -4*1000 # artificial offset to make meter data align with solar data (which is more accurate, since based on solar dips we can sync it and measurements can't predict the future)
     offs_solar = 0
 
-    start = max(ts.local_time_to_timestamp(start), min(meter_data['timestamps'][0] + offs_meter, solar_data['timestamps'][0] + offs_solar))
-    end   = min(ts.local_time_to_timestamp(end  ), max(meter_data['timestamps'][-1] + offs_meter, solar_data['timestamps'][-1] + offs_solar))
+    start = max(start, min(meter_data['timestamps'][0] + offs_meter, solar_data['timestamps'][0] + offs_solar))
+    end   = min(end  , max(meter_data['timestamps'][-1] + offs_meter, solar_data['timestamps'][-1] + offs_solar))
 
     print(f"start: {start}, end: {end}")
 
@@ -125,13 +137,11 @@ def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=Fal
     try:
         t0 = time.perf_counter()
         t0f = time.perf_counter()
-        start_ts = ts.local_time_to_timestamp(start)
-        end_ts = ts.local_time_to_timestamp(end)
 
         cur.execute("""select timestamp, value
                         from data
                         where channel_id = %s and timestamp between %s and %s
-                        """, (channel_id, start_ts, end_ts))
+                        """, (channel_id, start, end))
         results = cur.fetchall()
         t1f = time.perf_counter()
 
@@ -155,13 +165,15 @@ def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=Fal
         return { 'timestamps': [], 'values': [] }
 
 @app.get("/data")
-async def get_data():
+async def get_data(
+            start: int | None = None,
+            end:   int | None = None
+        ):
     try:
         t0 = time.perf_counter()
 
-        # show all for now
-        start = datetime.now() - timedelta(days=1)
-        end = datetime.now() + timedelta(days=9999)
+        if start == None: start = ts.local_time_to_timestamp(datetime.now() - timedelta(days=1))
+        if end   == None: end   = ts.local_time_to_timestamp(datetime.now() + timedelta(days=9999))
 
         # assume missing data if 3 times more elapsed time than supposed sample rate
         gap_thres_power = 1000 *3
