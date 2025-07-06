@@ -8,6 +8,7 @@ const App: React.FC = () => {
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(false);
+  const [latestMeter, setLatestMeter] = useState<number | null>(null);
 
   const handleUpdate = useCallback(() => {
     setUpdateTrigger(prev => prev + 1);
@@ -25,6 +26,11 @@ const App: React.FC = () => {
     <div className="app-container">
       <div className='header'>
         <div className="header-title">Energy Use Monitor</div>
+
+        <div>
+          Letzter Zählerstand: {latestMeter !== null ?
+            latestMeter.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kWh" : "?"}
+        </div>
 
         <div className="controls">
           <label className="auto-update-toggle">
@@ -53,7 +59,7 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-      <Graph updateTrigger={updateTrigger} setIsLoading={setIsLoading} autoUpdating={autoUpdate} />
+      <Graph updateTrigger={updateTrigger} setIsLoading={setIsLoading} autoUpdating={autoUpdate} setLatestMeter={setLatestMeter} />
     </div>
   );
 };

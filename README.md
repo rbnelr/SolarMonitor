@@ -24,3 +24,14 @@ chmod +x *.sh
 because linux hates me
 
 systemctl restart mysql
+
+cd Solarmon
+sudo systemctl stop solarmon.measure
+chmod -x raspberry/*.py
+chmod -x raspberry/*.sh
+git pull origin main
+chmod +x raspberry/*.py
+chmod +x raspberry/*.sh
+sudo systemctl start solarmon.measure
+
+

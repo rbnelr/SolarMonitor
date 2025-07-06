@@ -44,8 +44,8 @@ def process_results(results, gap_thres, gap_fill_fix):
                 # make gap in plotly line trace via nulls
                 timestamps.append(None)
                 values.append(None)
-        if row[0] - prev_row[0] > 1500:
-            print(f"{ts.time_from_timestamp(prev_row[0])} - {ts.time_from_timestamp(row[0])} {row[0] - prev_row[0]}")
+        #if row[0] - prev_row[0] > 1500:
+        #    print(f"{ts.time_from_timestamp(prev_row[0])} - {ts.time_from_timestamp(row[0])} {row[0] - prev_row[0]}")
         
         timestamps.append(row[0])
         values.append(row[1])
@@ -145,6 +145,8 @@ def query_channel_range(cur, channel_id, start, end, gap_thres, gap_fill_fix=Fal
         results = cur.fetchall()
         t1f = time.perf_counter()
 
+        print(f'channel_id: {channel_id} blah: {len(results)}')
+
         t0p = time.perf_counter()
 
         timestamps, values = process_results(results, gap_thres, gap_fill_fix)
@@ -185,7 +187,7 @@ async def get_data(
             solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power, gap_fill_fix=True)
             solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
         with db.get_vz_db_cursor() as cur2:
-            vz_meter_data = query_channel_range(cur2, 5, start, end, gap_thres_power)
+            vz_meter_data = query_channel_range(cur2, 2, start, end, gap_thres_power)
 
         load_data = filter_and_sum_meter_and_solar(vz_meter_data, solar_data, start, end)
 
@@ -193,7 +195,8 @@ async def get_data(
             'solar': solar_data,
             'solar_by_minute': solar_by_minute_data,
             'meter': vz_meter_data,
-            'load': load_data
+            'load': load_data,
+            'latest_meter_energy': None # TODO
         }
 
         t1 = time.perf_counter()

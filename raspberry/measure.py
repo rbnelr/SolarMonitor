@@ -5,6 +5,8 @@ import time
 import math
 import traceback
 import log_setup
+import asyncio
+import aiomysql
 
 log = log_setup.setup_logging('solarmon.measure')
 
@@ -45,6 +47,60 @@ power_id, power_by_minute_id = db.get_or_create_channels()
 # ret_aenergy is just the negative flow (due to solar panel)
 # by_minute contains measured energy per minute (previous 3 minutes)
 
+db_queue = asyncio.Queue(128)
+
+async def get_db_conn():
+    from dotenv import dotenv_values
+    import os
+
+    config = dotenv_values(os.path.abspath("database.env"))
+
+    return await aiomysql.connect(
+        host = config["DB_HOST"],
+        port = int(config["DB_PORT"]),
+        user = config["DB_USER"],
+        password = config["DB_PASSWORD"],
+        db = config["DB_NAME"],
+        connect_timeout = 20,
+        autocommit = True
+    )
+
+async def db_write_loop():
+    log.info("Starting db_write_loop")
+
+    conn = None
+    while True:
+        try:
+            conn = await get_db_conn()
+            
+            async with conn.cursor() as cursor:
+                while True:
+                    channel_id, timestamp, value = await db_queue.get()
+                    
+                    await cursor.execute(
+                        "insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
+                        (channel_id, timestamp, value)
+                    )
+                    print(f"{ts.time_from_timestamp(timestamp)}: {value} W")
+                    
+                    db_queue.task_done()
+                        
+        except Exception as e:
+            log.error(f"Error in db_write_loop: {traceback.format_exc()}")
+            log.info(f"Retrying in {10} seconds...")
+            await asyncio.sleep(10)
+        finally:
+            if conn:
+                conn.close()
+
+def queue_db_write(tup):
+    try:
+        db_queue.put_nowait(tup)
+    except asyncio.QueueFull:
+        log.error("Database Writer queue is full, dropping measurement")
+    except Exception as e:
+        log.error(f"Error adding to Database Writer queue: {e}")
+
 # https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Switch/
 def read_shelly_plug_status():
     try:
@@ -56,7 +112,7 @@ def read_shelly_plug_status():
         log.error(f"Failed to read Shelly status: {traceback.format_exc()}")
         raise
 
-def high_res_measurement_loop(db_conn, db_cursor):
+async def high_res_measurement_loop():
     period = 1
     prev_by_minute_ts = 0
     zero_power_count = 0
@@ -66,10 +122,12 @@ def high_res_measurement_loop(db_conn, db_cursor):
     log.info("Starting measurement loop")
     
     while True:
+        t = time.time()
+        
         try:
+            timestamp = ts.get_volkzaehler_timestamp()
             status = read_shelly_plug_status()
 
-            timestamp = ts.get_volkzaehler_timestamp()
             apower = -status['apower'] # Negative Watts = solar power
 
             # If power is zero for a while, assume night and don't write to db to save space and speed up queries
@@ -86,46 +144,67 @@ def high_res_measurement_loop(db_conn, db_cursor):
             by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
             by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)
 
-            if prev_by_minute_ts == by_minute_ts:
-                # insert per-second power data
-                db_cursor.execute("insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
-                    (power_id, timestamp, apower))
-                #print(f"{ts.time_from_timestamp(timestamp)}: {apower} W")
-            else:
-                # insert per-minute power data and per-minute average power data
-                # probably more efficient to do this in a single query
-                # could also use execute() with hard coded 6 values instead of executemany() with list (supposedly faster?)
-                db_cursor.executemany("insert into data (channel_id, timestamp, value) values (%s,%s,%s)",
-                    [(power_id, timestamp, apower),
-                    (power_by_minute_id, by_minute_ts, by_minute_avg_power)])
+            print(f"Measure {ts.time_from_timestamp(timestamp)}: {apower} W")
+            
+            queue_db_write((power_id, timestamp, apower))
+            #print(f"{ts.time_from_timestamp(timestamp)}: {apower} W")
+
+            if prev_by_minute_ts != by_minute_ts:
+                queue_db_write((power_by_minute_id, by_minute_ts, by_minute_avg_power))
                 #log.info(f"minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
-
-            db_conn.commit()
+            
             prev_by_minute_ts = by_minute_ts
-        except Exception:
-            db_conn.rollback()
-            log.error(f"Error in measurement loop: {traceback.format_exc()}")
-            log.info("Retrying in 5 seconds...")
-            time.sleep(5)
-        except KeyboardInterrupt:
-            log.info("Received keyboard interrupt, shutting down...")
-            break
-        finally:
-            time.sleep(period)
 
-def main():
-    log.info("measure.py starting up")
-    retry_delay = 30  # seconds
+            sleep_time = math.ceil(t/period)*period - t # good way to get consistent timings close to exactly on whole seconds
+            await asyncio.sleep(sleep_time)
+        except Exception:
+            log.error(f"Error in measurement loop: {traceback.format_exc()}")
+            log.info("Retrying in 10 seconds...")
+            await asyncio.sleep(10 - period)
+
+## HTTP server for push data
+from aiohttp import web
+
+async def handle_push(request):
+    try:
+        data = await request.text()
+        print(f"Received push data: {data}")
+
+        #await db_queue.put(("push", data))  # Add data to the queue
+
+        return web.Response(text="OK")
+    except Exception as e:
+        print(f"Error handling push: {e}")
+        return web.Response(status=500, text="Error")
+
+async def http_push_receiver():
+    log.info("Starting measurement loop")
     
     while True:
         try:
-            with db.get_db_conn() as db_conn:
-                with db_conn.cursor() as db_cursor:
-                    high_res_measurement_loop(db_conn, db_cursor)
-        except Exception as e:
-            log.error(f"Critical error in main loop: {traceback.format_exc()}")
-            log.info(f"Restarting in {retry_delay} seconds...")
-            time.sleep(retry_delay)
+            app = web.Application()
+            app.router.add_post('/vzlogger_data', handle_push)
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, 'localhost', 8082)
+            print("HTTP push receiver server running on http://localhost:8082...")
+            await site.start()
+        except Exception:
+            log.error(f"Error in push receiver loop: {traceback.format_exc()}")
+            log.info("Retrying in 10 seconds...")
+            await asyncio.sleep(10)
+
+async def main_async():
+    log.info("measure.py starting up")
+    
+    await asyncio.gather(
+        db_write_loop(),
+        high_res_measurement_loop(),
+        http_push_receiver()
+    )
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main_async())
+    except KeyboardInterrupt:
+        log.info("Received keyboard interrupt, shutting down...")

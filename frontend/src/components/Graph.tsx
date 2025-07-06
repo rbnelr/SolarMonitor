@@ -8,9 +8,10 @@ interface GraphProps {
   updateTrigger: number;
   autoUpdating: boolean;
   setIsLoading?: (loading: boolean) => void;
+  setLatestMeter?: (value: number) => void;
 }
 
-const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating }) => {
+const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating, setLatestMeter }) => {
   const div = useRef<HTMLDivElement>(null);
   const layout = useRef<Plotly.Layout | null>(null);
   const plotData = useRef<Plotly.Data[] | null>(null);
@@ -200,6 +201,8 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         //plotData.current![2].y = data.solar_by_minute.values;
         plotData.current![2].x = data.solar.timestamps;
         plotData.current![2].y = data.solar.values;
+        
+        setLatestMeter?.(data.latest_meter_energy);
 
         autopan();
 
