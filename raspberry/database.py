@@ -148,4 +148,7 @@ def get_channels(cur):
     cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power_by_minute'")
     power_by_minute_id = cur.fetchone()[0]
 
-    return power_id, power_by_minute_id
+    cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_power'")
+    meter_power_id = cur.fetchone()[0]
+
+    return power_id, power_by_minute_id, meter_power_id

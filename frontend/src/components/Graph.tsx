@@ -98,7 +98,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         mode: "lines",
         marker: { color: "#1F303EA0" },
         line: { width: 1.0, shape: "linear", simplify: true },
-        name: "meter",
+        name: "meter_power",
         showlegend: true,
       },
       {
@@ -193,8 +193,8 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
 
         // Really unsure how I'm supposed to do this with Plotly.restyle, which if I understand correctly is supposed to be used for changing parts of the data
         
-        plotData.current![0].x = data.meter.timestamps;
-        plotData.current![0].y = data.meter.values;
+        plotData.current![0].x = data.meter_power.timestamps;
+        plotData.current![0].y = data.meter_power.values;
         plotData.current![1].x = data.load.timestamps;
         plotData.current![1].y = data.load.values;
         //plotData.current![2].x = data.solar_by_minute.timestamps;

@@ -181,20 +181,19 @@ async def get_data(
         gap_thres_power = 1000 *3
         gap_thres_by_minute = 1000*60 *3
         
-        with db.get_db_cursor() as cur:
-            power_id, power_by_minute_id = db.get_channels(cur)
+        with db.get_cursor() as cur:
+            power_id, power_by_minute_id, meter_power_id = db.get_channels(cur)
 
             solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power, gap_fill_fix=True)
             solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
-        with db.get_vz_db_cursor() as cur2:
-            vz_meter_data = query_channel_range(cur2, 2, start, end, gap_thres_power)
+            meter_power = query_channel_range(cur, meter_power_id, start, end, gap_thres_power)
 
-        load_data = filter_and_sum_meter_and_solar(vz_meter_data, solar_data, start, end)
+        load_data = filter_and_sum_meter_and_solar(meter_power, solar_data, start, end)
 
         res = {
             'solar': solar_data,
             'solar_by_minute': solar_by_minute_data,
-            'meter': vz_meter_data,
+            'meter_power': meter_power,
             'load': load_data,
             'latest_meter_energy': None # TODO
         }
