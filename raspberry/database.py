@@ -1,41 +1,83 @@
-import mysql.connector
 from contextlib import contextmanager
+import asyncio
+import traceback
+import timestamps as ts
+import aiomysql
+import mysql.connector
 
-def get_db_conn(use_vz_db=False):
+queue = asyncio.Queue(128)
+
+async def get_conn_async(autocommit = False):
     from dotenv import dotenv_values
     import os
 
     config = dotenv_values(os.path.abspath("database.env"))
 
-    if use_vz_db:
-        config["DB_NAME"] = "volkszaehler"
+    return await aiomysql.connect(
+        host = config["DB_HOST"],
+        port = int(config["DB_PORT"]),
+        user = config["DB_USER"],
+        password = config["DB_PASSWORD"],
+        db = config["DB_NAME"],
+        connect_timeout = 20,
+        autocommit = autocommit
+    )
+def get_conn():
+    from dotenv import dotenv_values
+    import os
+
+    config = dotenv_values(os.path.abspath("database.env"))
 
     return mysql.connector.connect(
         host = config["DB_HOST"],
-        port = config["DB_PORT"],
+        port = int(config["DB_PORT"]),
         user = config["DB_USER"],
         password = config["DB_PASSWORD"],
-        database = config["DB_NAME"]
+        db = config["DB_NAME"],
+        connect_timeout = 20,
     )
 
-# HACK: pull volkszeahler db for now
-@contextmanager
-def get_vz_db_cursor():
-    with get_db_conn(use_vz_db=True) as conn:
-        cursor = conn.cursor(buffered=True) # TODO: buffered? raw? Depends on if I want to work with json, numpy etc
+vz_meter_power_uuid = "37738e30-59ed-11f0-9591-9b7c17f0375b"
+
+async def write_loop(log):
+    log.info("Starting db_write_loop")
+
+    conn = None
+    while True:
         try:
-            yield cursor
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
+            conn = await get_conn_async(autocommit=True)
+            
+            async with conn.cursor() as cursor:
+                while True:
+                    tup = await queue.get()
+                    
+                    await cursor.execute(
+                        "insert into data (timestamp, channel_id, value) values (%s,%s,%s)", tup
+                    )
+                    #print(f"Write {ts.time_from_timestamp(tup[0])}: Insert ({tup[1]}, {tup[2]})")
+                    
+                    queue.task_done()
+                        
+        except Exception as e:
+            log.error(f"Error in db_write_loop: {traceback.format_exc()}")
+            log.info(f"Retrying in {10} seconds...")
+            await asyncio.sleep(10)
         finally:
-            cursor.close()
+            if conn:
+                conn.close()
+
+def queue_write(log, tup):
+    try:
+        queue.put_nowait(tup)
+    except asyncio.QueueFull:
+        log.error("Database Writer queue is full, dropping measurement")
+    except Exception as e:
+        log.error(f"Error adding to Database Writer queue: {e}")
 
 @contextmanager
-def get_db_cursor():
-    with get_db_conn() as conn:
-        cursor = conn.cursor(buffered=True) # TODO: buffered? raw? Depends on if I want to work with json, numpy etc
+def get_cursor():
+    with get_conn() as conn:
+        cursor = conn.cursor() # TODO: buffered? raw? Depends on if I want to work with json, numpy etc
         try:
             yield cursor
             conn.commit()
@@ -47,7 +89,7 @@ def get_db_cursor():
 
 # doing this to lazily create the tables used to work I think, but now gives error for some reason
 def create_tables():
-    with get_db_cursor() as cur:
+    with get_cursor() as cur:
         #cur.execute("DROP TABLE IF EXISTS data")
         
         # type -> power, energy
@@ -74,7 +116,7 @@ def create_tables():
         """)
     
 def get_or_create_channels():
-    with get_db_cursor() as cur:
+    with get_cursor() as cur:
         cur.execute("""
             INSERT IGNORE INTO channels (name, type, unit)
             VALUES ('solar_power', 'power', 'W')
@@ -89,8 +131,15 @@ def get_or_create_channels():
         cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power_by_minute'")
         power_by_minute_id = cur.fetchone()[0]
 
+        cur.execute("""
+            INSERT IGNORE INTO channels (name, type, unit)
+            VALUES ('meter_power', 'power', 'W')
+        """)
+        cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_power'")
+        meter_power = cur.fetchone()[0]
+
         #print(f"power: {power_id}, power_by_minute: {power_by_minute_id}")
-        return power_id, power_by_minute_id
+        return power_id, power_by_minute_id, meter_power
 
 def get_channels(cur):
     cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power'")
