@@ -67,7 +67,7 @@ async def high_res_measurement_loop():
     log.info("Starting measurement loop")
     
     while True:
-        t = time.time()
+        start_ts = time.time()
         
         try:
             timestamp = ts.get_volkzaehler_timestamp()
@@ -83,27 +83,28 @@ async def high_res_measurement_loop():
                 if not zero_power_state: # Only print once
                     zero_power_state = True
                     log.info(f"Zero power for {zero_power_count*period} seconds, skipping...")
-                continue
-            zero_power_state = False
+            else:
+                zero_power_state = False
 
-            by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
-            by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)
-            
-            db.queue_write(log, (timestamp, power_id, apower))
-            #print(f"Measure Shelly {ts.time_from_timestamp(timestamp)}: {apower} W")
+                by_minute_ts        = status['ret_aenergy']['minute_ts'] * 1000 # s -> ms
+                by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)
+                
+                db.queue_write(log, (timestamp, power_id, apower))
+                #print(f"Measure Shelly {ts.time_from_timestamp(timestamp)}: {apower} W")
 
-            if prev_by_minute_ts != by_minute_ts:
-                db.queue_write(log, (by_minute_ts, power_by_minute_id, by_minute_avg_power))
-                #log.info(f"Measure Shelly minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
-            
-            prev_by_minute_ts = by_minute_ts
+                if prev_by_minute_ts != by_minute_ts:
+                    db.queue_write(log, (by_minute_ts, power_by_minute_id, by_minute_avg_power))
+                    #log.info(f"Measure Shelly minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
+                
+                prev_by_minute_ts = by_minute_ts
 
-            sleep_time = math.ceil(t/period)*period - t # good way to get consistent timings close to exactly on whole seconds
-            await asyncio.sleep(sleep_time)
+            sleep_time = math.ceil(start_ts/period)*period - start_ts # good way to get consistent timings close to exactly on whole seconds
         except Exception:
             log.error(f"Error in measurement loop: {traceback.format_exc()}")
             log.info("Retrying in 10 seconds...")
-            await asyncio.sleep(10 - period)
+            sleep_time = 10
+
+        await asyncio.sleep(sleep_time)
 
 ## HTTP server for push data
 from aiohttp import web
