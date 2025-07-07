@@ -1,11 +1,11 @@
 import database as db
-import requests
 import timestamps as ts
 import time
 import math
 import traceback
 import log_setup
 import asyncio
+import aiohttp
 
 log = log_setup.setup_logging('solarmon.measure')
 
@@ -47,13 +47,14 @@ power_id, power_by_minute_id, meter_power_id = db.get_or_create_channels()
 # by_minute contains measured energy per minute (previous 3 minutes)
 
 # https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Switch/
-def read_shelly_plug_status():
+async def read_shelly_plug_status():
     try:
         url = 'http://192.168.2.109/rpc/Switch.GetStatus?id=0'
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                response.raise_for_status()
+                return await response.json()
+    except Exception:
         log.error(f"Failed to read Shelly status: {traceback.format_exc()}")
         raise
 
@@ -71,7 +72,7 @@ async def high_res_measurement_loop():
         
         try:
             timestamp = ts.get_volkzaehler_timestamp()
-            status = read_shelly_plug_status()
+            status = await read_shelly_plug_status()
 
             apower = -status['apower'] # Negative Watts = solar power
 
