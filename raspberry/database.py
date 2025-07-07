@@ -54,7 +54,7 @@ async def write_loop(log):
                     await cursor.execute(
                         "insert into data (timestamp, channel_id, value) values (%s,%s,%s)", tup
                     )
-                    #print(f"Write {ts.time_from_timestamp(tup[0])}: Insert ({tup[1]}, {tup[2]})")
+                    print(f"Write {ts.time_from_timestamp(tup[0])}: Insert ({tup[1]}, {tup[2]})")
                     
                     queue.task_done()
                         

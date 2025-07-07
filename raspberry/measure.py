@@ -90,11 +90,11 @@ async def high_res_measurement_loop():
                 by_minute_avg_power = float(status['ret_aenergy']['by_minute'][0]) * (60.0 / 1000) # mWh / min -> W (avg in minute)
                 
                 db.queue_write(log, (timestamp, power_id, apower))
-                #print(f"Measure Shelly {ts.time_from_timestamp(timestamp)}: {apower} W")
+                print(f"Measure Shelly {ts.time_from_timestamp(timestamp)}: {apower} W")
 
                 if prev_by_minute_ts != by_minute_ts:
                     db.queue_write(log, (by_minute_ts, power_by_minute_id, by_minute_avg_power))
-                    #log.info(f"Measure Shelly minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
+                    log.info(f"Measure Shelly minute {ts.time_from_timestamp(by_minute_ts)}: {by_minute_avg_power} W")
                 
                 prev_by_minute_ts = by_minute_ts
 
@@ -112,7 +112,7 @@ from aiohttp import web
 async def handle_push(request):
     try:
         data = await request.json()
-        #print(f"Received push data: {data}")
+        print(f"Received push data: {data}")
 
         for obj in data['data']:
             if (obj['uuid'] == db.vz_meter_power_uuid):
