@@ -98,7 +98,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         mode: "lines",
         marker: { color: "#1F303EA0" },
         line: { width: 1.0, shape: "linear", simplify: true },
-        name: "meter_power",
+        name: "Verbrauch (Zähler)",
         showlegend: true,
       },
       {
@@ -111,7 +111,7 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         connectgaps: false,
         marker: { color: "#1F303E" },
         line: { width: 2.0, shape: "linear", simplify: true },
-        name: "load",
+        name: "Echter Verbrauch (errechnet)",
         showlegend: true,
       },
       {
@@ -123,7 +123,17 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         fillcolor: "#F3D70040",
         marker: { color: "#F3D700C0" },
         line: { width: 2.0, shape: "linear", simplify: true },
-        name: "apower",
+        name: "Solarleistung",
+        showlegend: true,
+      },
+      {
+        x: [],
+        y: [],
+        type: "scatter",
+        mode: "lines",
+        marker: { color: "#9AFF56" },
+        line: { width: 2.0, shape: "linear", simplify: true },
+        name: "Ersparnis (errechnet)",
         showlegend: true,
       },
       //{
@@ -139,7 +149,11 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
       //}
     ];
 
-    Plotly.newPlot(div.current, plotData.current, layout.current, { responsive: true, scrollZoom: true, displayModeBar: false });
+    Plotly.newPlot(div.current, plotData.current, layout.current, {
+      responsive: true,
+      scrollZoom: true,
+      displayModeBar: false,
+    });
     
     //div.current!.on('plotly_relayout', function(eventdata : any) {
     //  console.log('plotly_relayout! ', eventdata);
@@ -201,6 +215,8 @@ const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating
         //plotData.current![2].y = data.solar_by_minute.values;
         plotData.current![2].x = data.solar.timestamps;
         plotData.current![2].y = data.solar.values;
+        plotData.current![3].x = data.savings.timestamps;
+        plotData.current![3].y = data.savings.values;
         
         setLatestMeter?.(data.latest_meter_energy);
 

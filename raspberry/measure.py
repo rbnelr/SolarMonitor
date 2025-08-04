@@ -10,7 +10,7 @@ import aiohttp
 log = log_setup.setup_logging('solarmon.measure')
 
 #db.create_tables()
-power_id, power_by_minute_id, meter_power_id = db.get_or_create_channels()
+power_id, power_by_minute_id, meter_power_id, meter_reading_id = db.get_or_create_channels()
 
 #"id": 0,
 #"source": "WS_in",
@@ -51,7 +51,7 @@ async def read_shelly_plug_status():
     try:
         url = 'http://192.168.2.109/rpc/Switch.GetStatus?id=0'
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+            async with session.get(url, timeout=5) as response:
                 response.raise_for_status()
                 return await response.json()
     except Exception:
@@ -119,6 +119,10 @@ async def handle_push(request):
             if (obj['uuid'] == db.vz_meter_power_uuid):
                 for (timestamp, value) in obj['tuples']:
                     db.queue_write(log, (timestamp, meter_power_id, value))
+            elif (obj['uuid'] == db.vz_meter_reading_uuid):
+                for (timestamp, value_wh) in obj['tuples']:
+                    value_kwh = value_wh / 1000
+                    db.queue_write(log, (timestamp, meter_reading_id, value_kwh, True))
 
         return web.Response(text="OK")
     except Exception as e:

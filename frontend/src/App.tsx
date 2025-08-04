@@ -25,7 +25,7 @@ const App: React.FC = () => {
   return (
     <div className="app-container">
       <div className='header'>
-        <div className="header-title">Energy Use Monitor</div>
+        <div className="header-title">Solar Monitor</div>
 
         <div>
           Letzter Zählerstand: {latestMeter !== null ?

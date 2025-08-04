@@ -25,7 +25,7 @@ because linux hates me
 
 systemctl restart mysql
 
-cd Solarmon
+cd SolarMonitor
 sudo systemctl stop solarmon.measure
 chmod -x raspberry/*.py
 chmod -x raspberry/*.sh

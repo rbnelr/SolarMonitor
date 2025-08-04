@@ -17,6 +17,9 @@ app.add_middleware(
     allow_headers=["*"], # Allow all headers
 )
 
+# TODO: instead of processing for gaps, then trying to filter by combining solar and meter afterwards
+# try to produce raw view data with gaps and filtered version with data in interval (either value or null for missing) first
+# then combing the two arrays is easy
 def process_results(results, gap_thres, gap_fill_fix):
     timestamps = []
     values = []
@@ -80,7 +83,6 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
     print(f"start_i: {start_i}, end_i: {end_i}, count: {count}")
 
     res_tim = [i*interval - interval//2 for i in range(start_i, end_i+1)] # center the interval makes most sense for the plot
-    res_val = [0]*count
 
     # 'accurate' accumulation, anyway here's a picture:
     #  [        5 seconds        ][        5 seconds        ]
@@ -90,6 +92,7 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
         # compute duration of each measurement based on previous timestamp
         times = data['timestamps']
         values = data['values']
+        buf = [0]*count
 
         prev_timestamp = (times[0] + offs - sample_rate) / interval
 
@@ -97,6 +100,7 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
             timestamp = times[i]
             if timestamp is None: continue # gap count as 0
             # keep all timestamps and durations in interval to minimize computation, yes this is confusing
+            # NOTE: why does this mean that value * dur is not a energy value but a average power value?
             timestamp = (timestamp + offs) / interval
             
             # duration of sample using previous timestamp (relative to interval)
@@ -110,7 +114,7 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
             if prev_timestamp >= interval_ts:
                 # entire sample is in the interval, fastpath
                 if right_idx >= 0 and right_idx < count:
-                    res_val[right_idx] += weighted_value
+                    buf[right_idx] += weighted_value
             else:
                 # split sample, compute duration of l/r part and weight accordingly
                 right_dur = timestamp - interval_ts
@@ -118,15 +122,29 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
                 left_value = weighted_value - right_value
 
                 left_idx = right_idx - 1
-                if left_idx  >= 0 and right_idx < count:  res_val[left_idx ] += left_value
-                if right_idx >= 0 and right_idx < count:  res_val[right_idx] += right_value
+                if left_idx  >= 0 and right_idx < count:  buf[left_idx ] += left_value
+                if right_idx >= 0 and right_idx < count:  buf[right_idx] += right_value
 
             prev_timestamp = timestamp
+        
+        return buf
     
-    accumulate(meter_data, offs_meter)
-    accumulate(solar_data, offs_solar)
+    meter_buf = accumulate(meter_data, offs_meter)
+    solar_buf = accumulate(solar_data, offs_solar)
 
-    res = { 'timestamps': res_tim, 'values': res_val }
+    # TODO: could try to turn gaps in source values into gaps in filtered data, but his is a little complicated because gap fix makes detecting gaps harder
+    # Instead just accept that missing values will technically introduce error in things like saved energy numbers
+    # remove negative values due to glitches
+    load_val = [max(val[0] + val[1], 0.0) for val in zip(meter_buf, solar_buf)]
+
+    energy_saving = [
+        max(min(val[0], 0.0) + val[1], 0.0) 
+        for val in zip(meter_buf, solar_buf)]
+
+    res = (
+        { 'timestamps': res_tim, 'values': load_val },
+        { 'timestamps': res_tim, 'values': energy_saving }
+    )
     
     t1 = time.perf_counter()
     print(f" filter_and_sum_meter_and_solar time: {(t1 - t0)*1000:.2f} ms")
@@ -181,21 +199,24 @@ async def get_data(
         gap_thres_power = 1000 *3
         gap_thres_by_minute = 1000*60 *3
         
-        with db.get_cursor() as cur:
-            power_id, power_by_minute_id, meter_power_id = db.get_channels(cur)
+        with db.get_cursor(read_timeout=5000) as cur:
+            power_id, power_by_minute_id, meter_power_id, meter_reading_id = db.get_channels(cur)
 
             solar_data = query_channel_range(cur, power_id, start, end, gap_thres_power, gap_fill_fix=True)
-            solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
+            #solar_by_minute_data = query_channel_range(cur, power_by_minute_id, start, end, gap_thres_by_minute, gap_fill_fix=True)
             meter_power = query_channel_range(cur, meter_power_id, start, end, gap_thres_power)
+            meter_reading = query_channel_range(cur, meter_reading_id, start, end, gap_thres_by_minute)
 
-        load_data = filter_and_sum_meter_and_solar(meter_power, solar_data, start, end)
+        filtered = filter_and_sum_meter_and_solar(meter_power, solar_data, start, end)
 
         res = {
             'solar': solar_data,
-            'solar_by_minute': solar_by_minute_data,
+            #'solar_by_minute': solar_by_minute_data,
             'meter_power': meter_power,
-            'load': load_data,
-            'latest_meter_energy': None # TODO
+            #'meter_reading': meter_reading,
+            'load': filtered[0],
+            'savings': filtered[1],
+            'latest_meter_energy': ( meter_reading['timestamps'][-1], meter_reading['values'][-1] )
         }
 
         t1 = time.perf_counter()

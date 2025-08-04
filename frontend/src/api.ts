@@ -4,7 +4,9 @@ export interface Data {
   solar: { timestamps: number[]; values: number[] };
   solar_by_minute: { timestamps: number[]; values: number[] };
   meter_power: { timestamps: number[]; values: number[] };
+  meter_reading: { timestamps: number[]; values: number[] };
   load: { timestamps: number[]; values: number[] };
+  savings: { timestamps: number[]; values: number[] };
   latest_meter_energy: number;
 }
 //export const EMPTY_DATA: Data = {

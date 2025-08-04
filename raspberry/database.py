@@ -38,6 +38,7 @@ def get_conn():
     )
 
 vz_meter_power_uuid = "37738e30-59ed-11f0-9591-9b7c17f0375b"
+vz_meter_reading_uuid = "23319b90-59ed-11f0-9d8c-a5c24498f2b7"
 
 async def write_loop(log):
     log.info("Starting db_write_loop")
@@ -50,10 +51,26 @@ async def write_loop(log):
             async with conn.cursor() as cursor:
                 while True:
                     tup = await queue.get()
+                    combine_per_minute = len(tup) >= 4 # ugly hack
                     
-                    await cursor.execute(
-                        "insert into data (timestamp, channel_id, value) values (%s,%s,%s)", tup
-                    )
+                    if not combine_per_minute:
+                        await cursor.execute(
+                            "insert into data (timestamp, channel_id, value) values (%s,%s,%s)", tup
+                        )
+                    else:
+                        # special handling for meter readings: only store every minute but take max
+                        minute_timestamp = (tup[0] // 60000) * 60000
+                        
+                        # Delete any existing values for this minute, then insert new value (effectively combine by max but keep accurate timestamp)
+                        await cursor.execute(
+                            "DELETE FROM data WHERE channel_id = %s AND timestamp >= %s AND timestamp < %s",
+                            (tup[1], minute_timestamp, minute_timestamp + 60000)
+                        )
+                        await cursor.execute(
+                            "INSERT INTO data (timestamp, channel_id, value) VALUES (%s, %s, %s)",
+                            (tup[0], tup[1], tup[2])
+                        )
+
                     print(f"Write {ts.time_from_timestamp(tup[0])}: Insert ({tup[1]}, {tup[2]})")
                     
                     queue.task_done()
@@ -75,9 +92,9 @@ def queue_write(log, tup):
         log.error(f"Error adding to Database Writer queue: {e}")
 
 @contextmanager
-def get_cursor():
+def get_cursor(read_timeout=None):
     with get_conn() as conn:
-        cursor = conn.cursor() # TODO: buffered? raw? Depends on if I want to work with json, numpy etc
+        cursor = conn.cursor(read_timeout=read_timeout) # TODO: buffered? raw? Depends on if I want to work with json, numpy etc
         try:
             yield cursor
             conn.commit()
@@ -138,8 +155,15 @@ def get_or_create_channels():
         cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_power'")
         meter_power = cur.fetchone()[0]
 
+        cur.execute("""
+            INSERT IGNORE INTO channels (name, type, unit)
+            VALUES ('meter_reading', 'energy', 'kWh')
+        """)
+        cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_reading'")
+        meter_reading = cur.fetchone()[0]
+
         #print(f"power: {power_id}, power_by_minute: {power_by_minute_id}")
-        return power_id, power_by_minute_id, meter_power
+        return power_id, power_by_minute_id, meter_power, meter_reading
 
 def get_channels(cur):
     cur.execute("SELECT channel_id FROM channels WHERE name = 'solar_power'")
@@ -151,4 +175,7 @@ def get_channels(cur):
     cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_power'")
     meter_power_id = cur.fetchone()[0]
 
-    return power_id, power_by_minute_id, meter_power_id
+    cur.execute("SELECT channel_id FROM channels WHERE name = 'meter_reading'")
+    meter_reading_id = cur.fetchone()[0]
+
+    return power_id, power_by_minute_id, meter_power_id, meter_reading_id
