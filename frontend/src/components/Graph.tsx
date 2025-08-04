@@ -8,7 +8,7 @@ interface GraphProps {
   updateTrigger: number;
   autoUpdating: boolean;
   setIsLoading?: (loading: boolean) => void;
-  setLatestMeter?: (value: number) => void;
+  setLatestMeter?: (value: { timestamp: number; value: number }) => void;
 }
 
 const Graph: React.FC<GraphProps> = ({ updateTrigger, setIsLoading, autoUpdating, setLatestMeter }) => {

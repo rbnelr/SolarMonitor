@@ -8,7 +8,7 @@ const App: React.FC = () => {
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(false);
-  const [latestMeter, setLatestMeter] = useState<number | null>(null);
+  const [latestMeter, setLatestMeter] = useState<{ timestamp: number; value: number } | null>(null);
 
   const handleUpdate = useCallback(() => {
     setUpdateTrigger(prev => prev + 1);
@@ -28,8 +28,15 @@ const App: React.FC = () => {
         <div className="header-title">Solar Monitor</div>
 
         <div>
-          Letzter Zählerstand: {latestMeter !== null ?
-            latestMeter.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kWh" : "?"}
+          {
+            latestMeter !== null
+              ? (
+                <span title={new Date(latestMeter.timestamp).toLocaleString()}>
+                  Letzter Zählerstand: {latestMeter.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh
+                </span>
+              )
+              : "Letzter Zählerstand: ?"
+          }
         </div>
 
         <div className="controls">

@@ -216,7 +216,7 @@ async def get_data(
             #'meter_reading': meter_reading,
             'load': filtered[0],
             'savings': filtered[1],
-            'latest_meter_energy': ( meter_reading['timestamps'][-1], meter_reading['values'][-1] )
+            'latest_meter_energy': { 'timestamp': meter_reading['timestamps'][-1], 'value': meter_reading['values'][-1] }
         }
 
         t1 = time.perf_counter()

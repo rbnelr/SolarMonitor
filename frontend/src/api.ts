@@ -7,7 +7,7 @@ export interface Data {
   meter_reading: { timestamps: number[]; values: number[] };
   load: { timestamps: number[]; values: number[] };
   savings: { timestamps: number[]; values: number[] };
-  latest_meter_energy: number;
+  latest_meter_energy: { timestamp: number; value: number };
 }
 //export const EMPTY_DATA: Data = {
 //  power: { timestamps: [], values: [] },
