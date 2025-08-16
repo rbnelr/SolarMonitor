@@ -59,7 +59,10 @@ def process_results(results, gap_thres, gap_fill_fix):
 
 def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
     if len(meter_data['timestamps']) == 0 or len(solar_data['timestamps']) == 0:
-        return { 'timestamps': [], 'values': [] }
+        return (
+            { 'timestamps': [], 'values': [] },
+            { 'timestamps': [], 'values': [] }
+        )
 
     t0 = time.perf_counter()
 
@@ -141,10 +144,10 @@ def filter_and_sum_meter_and_solar(meter_data, solar_data, start, end):
         max(min(val[0], 0.0) + val[1], 0.0) 
         for val in zip(meter_buf, solar_buf)]
 
-    res = (
+    res = [
         { 'timestamps': res_tim, 'values': load_val },
         { 'timestamps': res_tim, 'values': energy_saving }
-    )
+    ]
     
     t1 = time.perf_counter()
     print(f" filter_and_sum_meter_and_solar time: {(t1 - t0)*1000:.2f} ms")
@@ -209,6 +212,11 @@ async def get_data(
 
         filtered = filter_and_sum_meter_and_solar(meter_power, solar_data, start, end)
 
+        latest_reading = {
+            'timestamp': meter_reading['timestamps'][-1],
+            'value': meter_reading['values'][-1]
+        } if meter_reading['timestamps'] else None
+
         res = {
             'solar': solar_data,
             #'solar_by_minute': solar_by_minute_data,
@@ -216,7 +224,7 @@ async def get_data(
             #'meter_reading': meter_reading,
             'load': filtered[0],
             'savings': filtered[1],
-            'latest_meter_energy': { 'timestamp': meter_reading['timestamps'][-1], 'value': meter_reading['values'][-1] }
+            'latest_meter_energy': latest_reading
         }
 
         t1 = time.perf_counter()
